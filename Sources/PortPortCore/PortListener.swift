@@ -13,6 +13,16 @@ public struct PortListener: Sendable, Identifiable, Hashable, Codable {
     public let workingDirectory: String
     public let techStack: TechStack
     public let commandArgs: [String]
+    public let startTime: Date?
+
+    /// Human-readable command string
+    public var command: String {
+        guard !commandArgs.isEmpty else { return processName }
+        // Show just the binary name + args, not the full path
+        let binary = (commandArgs[0] as NSString).lastPathComponent
+        if commandArgs.count == 1 { return binary }
+        return ([binary] + commandArgs.dropFirst()).joined(separator: " ")
+    }
 
     public init(
         port: UInt16,
@@ -23,7 +33,8 @@ public struct PortListener: Sendable, Identifiable, Hashable, Codable {
         processPath: String,
         workingDirectory: String,
         techStack: TechStack,
-        commandArgs: [String]
+        commandArgs: [String],
+        startTime: Date? = nil
     ) {
         self.port = port
         self.protocol = `protocol`
@@ -34,6 +45,7 @@ public struct PortListener: Sendable, Identifiable, Hashable, Codable {
         self.workingDirectory = workingDirectory
         self.techStack = techStack
         self.commandArgs = commandArgs
+        self.startTime = startTime
     }
 }
 

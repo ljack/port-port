@@ -16,6 +16,10 @@ public final class PortScanner: Sendable {
             listeners.append(contentsOf: pidListeners)
         }
 
+        // Deduplicate (same port+protocol+pid on both IPv4 and IPv6)
+        var seen = Set<String>()
+        listeners = listeners.filter { seen.insert($0.id).inserted }
+
         // Sort by port number
         listeners.sort { $0.port < $1.port }
         return listeners
@@ -52,6 +56,7 @@ public final class PortScanner: Sendable {
         var cachedPath: String?
         var cachedName: String?
         var cachedUID: UInt32?
+        var cachedStartTime: Date?
         var cachedCwd: String?
         var cachedArgs: [String]?
         var cachedTech: TechStack?
@@ -105,9 +110,10 @@ public final class PortScanner: Sendable {
             if cachedPath == nil {
                 let path = ProcessInfoHelper.executablePath(for: pid)
                 cachedPath = path
-                let (name, uid) = ProcessInfoHelper.processNameAndUID(for: pid)
+                let (name, uid, startTime) = ProcessInfoHelper.processInfo(for: pid)
                 cachedName = name
                 cachedUID = uid
+                cachedStartTime = startTime
                 cachedCwd = ProcessInfoHelper.workingDirectory(for: pid)
                 cachedArgs = ProcessInfoHelper.commandArgs(for: pid)
                 cachedTech = TechStackDetector.detect(path: path, args: cachedArgs ?? [])
@@ -122,7 +128,8 @@ public final class PortScanner: Sendable {
                 processPath: cachedPath ?? "",
                 workingDirectory: cachedCwd ?? "",
                 techStack: cachedTech ?? .unknown,
-                commandArgs: cachedArgs ?? []
+                commandArgs: cachedArgs ?? [],
+                startTime: cachedStartTime
             )
             listeners.append(listener)
         }

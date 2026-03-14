@@ -10,20 +10,92 @@ struct PortRowView: View {
     @State private var showPortPicker = false
 
     var body: some View {
+        VStack(spacing: 0) {
+            mainRow
+
+            // Inline kill confirmation
+            if showConfirmKill, let pid = item.pid {
+                HStack(spacing: 8) {
+                    Text("Kill \(item.processName)?")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button("SIGTERM") {
+                        monitor.killProcess(pid: pid)
+                        showConfirmKill = false
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(.orange)
+                    .font(.caption2)
+                    .controlSize(.small)
+
+                    Button("SIGKILL") {
+                        monitor.killProcess(pid: pid, force: true)
+                        showConfirmKill = false
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(.red)
+                    .font(.caption2)
+                    .controlSize(.small)
+
+                    Button("Cancel") {
+                        showConfirmKill = false
+                    }
+                    .buttonStyle(.plain)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 4)
+                .background(Color.red.opacity(0.05))
+                .transition(.opacity)
+            }
+
+            // Inline port conflict picker
+            if showPortPicker {
+                let suggested = monitor.findAvailablePort(near: item.port)
+                HStack(spacing: 8) {
+                    Text("Port \(item.port) in use by \(item.portConflict?.processName ?? "?")")
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                    Spacer()
+                    Button("Use \(suggested)") {
+                        monitor.restartApp(item, onPort: suggested)
+                        showPortPicker = false
+                    }
+                    .buttonStyle(.bordered)
+                    .font(.caption2)
+                    .controlSize(.small)
+
+                    Button("Cancel") {
+                        showPortPicker = false
+                    }
+                    .buttonStyle(.plain)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 4)
+                .background(Color.orange.opacity(0.05))
+                .transition(.opacity)
+            }
+        }
+        .animation(.easeInOut(duration: 0.15), value: showConfirmKill)
+        .animation(.easeInOut(duration: 0.15), value: showPortPicker)
+    }
+
+    private var mainRow: some View {
         HStack(spacing: 8) {
-            // Status dot
             Circle()
                 .fill(item.isRunning ? .green : .gray)
                 .frame(width: 6, height: 6)
 
             techBadge
 
-            // Port number
             Text(verbatim: "\(item.port)")
                 .font(.system(.body, design: .monospaced, weight: .semibold))
                 .foregroundStyle(item.isRunning ? .primary : .secondary)
 
-            // Protocol
             Text(item.protocol.rawValue)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
@@ -32,19 +104,19 @@ struct PortRowView: View {
                 .background(.quaternary, in: RoundedRectangle(cornerRadius: 3))
 
             VStack(alignment: .leading, spacing: 1) {
-                Text(item.processName)
+                Text(item.command)
                     .font(.caption)
                     .lineLimit(1)
                     .foregroundStyle(item.isRunning ? .primary : .secondary)
+                    .help(item.commandArgs.joined(separator: " "))
 
                 if !item.workingDirectory.isEmpty && item.workingDirectory != "/" {
-                    Text(abbreviatedPath(item.workingDirectory))
+                    Text(PathUtils.abbreviate(item.workingDirectory))
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                         .lineLimit(1)
                 }
 
-                // Port conflict warning for stopped items
                 if let conflict = item.portConflict, !item.isRunning {
                     Text("Port \(conflict.port) used by \(conflict.processName)")
                         .font(.caption2)
@@ -59,10 +131,11 @@ struct PortRowView: View {
                 actionButtons
             }
 
-            if item.isRunning, let pid = item.pid {
-                Text(verbatim: "PID \(pid)")
+            if item.isRunning, let start = item.startTime {
+                Text(start, style: .relative)
                     .font(.caption2)
                     .foregroundStyle(.quaternary)
+                    .help("Process uptime")
             } else if let lastSeen = item.lastSeen {
                 Text(lastSeen, style: .relative)
                     .font(.caption2)
@@ -74,28 +147,6 @@ struct PortRowView: View {
         .background(isHovering ? Color.primary.opacity(0.05) : .clear)
         .opacity(item.isRunning ? 1.0 : 0.7)
         .onHover { isHovering = $0 }
-        .alert("Kill Process?", isPresented: $showConfirmKill) {
-            if let pid = item.pid {
-                Button("SIGTERM", role: .destructive) {
-                    monitor.killProcess(pid: pid)
-                }
-                Button("SIGKILL", role: .destructive) {
-                    monitor.killProcess(pid: pid, force: true)
-                }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Kill \(item.processName) (PID \(item.pid ?? 0)) on port \(item.port)?")
-        }
-        .alert("Restart on different port?", isPresented: $showPortPicker) {
-            let suggested = monitor.findAvailablePort(near: item.port)
-            Button("Port \(suggested)") {
-                monitor.restartApp(item, onPort: suggested)
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Port \(item.port) is in use by \(item.portConflict?.processName ?? "another process"). Restart on a different port?")
-        }
     }
 
     @ViewBuilder
@@ -123,7 +174,7 @@ struct PortRowView: View {
                 }
 
                 Button {
-                    showConfirmKill = true
+                    showConfirmKill.toggle()
                 } label: {
                     Image(systemName: "xmark.circle")
                         .font(.caption)
@@ -132,11 +183,10 @@ struct PortRowView: View {
                 .buttonStyle(.plain)
                 .help("Kill process")
             } else {
-                // Stopped: show restart and remove
                 if !item.commandArgs.isEmpty {
                     Button {
                         if item.portConflict != nil {
-                            showPortPicker = true
+                            showPortPicker.toggle()
                         } else {
                             monitor.restartApp(item)
                         }
@@ -215,13 +265,5 @@ struct PortRowView: View {
         case .php: .teal
         case .unknown: .gray
         }
-    }
-
-    private func abbreviatedPath(_ path: String) -> String {
-        let home = FileManager.default.homeDirectoryForCurrentUser.path()
-        if path.hasPrefix(home) {
-            return "~" + path.dropFirst(home.count)
-        }
-        return path
     }
 }

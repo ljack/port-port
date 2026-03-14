@@ -14,20 +14,21 @@ public enum ProcessInfoHelper: Sendable {
         return String(cString: pathBuffer)
     }
 
-    /// Get the process name and UID for a PID
-    public static func processNameAndUID(for pid: Int32) -> (name: String, uid: UInt32) {
+    /// Get the process name, UID, and start time for a PID
+    public static func processInfo(for pid: Int32) -> (name: String, uid: UInt32, startTime: Date?) {
         var info = proc_bsdinfo()
         let size = proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, Int32(MemoryLayout<proc_bsdinfo>.size))
         guard size > 0 else {
             let path = executablePath(for: pid)
-            return ((path as NSString).lastPathComponent, UInt32.max)
+            return ((path as NSString).lastPathComponent, UInt32.max, nil)
         }
         let name = withUnsafePointer(to: info.pbi_name) { ptr in
             ptr.withMemoryRebound(to: CChar.self, capacity: Int(MAXCOMLEN)) { cStr in
                 String(cString: cStr)
             }
         }
-        return (name, info.pbi_uid)
+        let startTime = Date(timeIntervalSince1970: TimeInterval(info.pbi_start_tvsec))
+        return (name, info.pbi_uid, startTime)
     }
 
     /// Get the working directory for a PID using proc_pidinfo with PROC_PIDVNODEPATHINFO

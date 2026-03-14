@@ -11,6 +11,7 @@ let package = Package(
         .library(name: "PortPortCore", targets: ["PortPortCore"]),
         .executable(name: "port-port-mcp", targets: ["PortPortMCP"]),
         .executable(name: "port-port", targets: ["PortPortApp"]),
+        .executable(name: "port-port-cli", targets: ["PortPortCLI"]),
     ],
     targets: [
         .target(
@@ -27,6 +28,11 @@ let package = Package(
             name: "PortPortMCP",
             dependencies: ["PortPortCore"],
             path: "Sources/PortPortMCP"
+        ),
+        .executableTarget(
+            name: "PortPortCLI",
+            dependencies: ["PortPortCore"],
+            path: "Sources/PortPortCLI"
         ),
         .testTarget(
             name: "PortPortCoreTests",
