@@ -22,7 +22,8 @@ let package = Package(
             name: "PortPortApp",
             dependencies: ["PortPortCore"],
             path: "Sources/PortPortApp",
-            exclude: ["Info.plist", "PortPortApp.entitlements"]
+            exclude: ["Info.plist", "PortPortApp.entitlements", "AppIcon.icns"],
+            resources: [.copy("Resources")]
         ),
         .executableTarget(
             name: "PortPortMCP",

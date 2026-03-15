@@ -1,8 +1,19 @@
+import AppKit
 import SwiftUI
 import UserNotifications
 
 @main
 struct PortPortApp: App {
+    private static let menuBarIcon: NSImage = {
+        if let url = Bundle.module.url(forResource: "menubar-icon", withExtension: "png", subdirectory: "Resources"),
+           let img = NSImage(contentsOf: url) {
+            img.size = NSSize(width: 18, height: 18)
+            img.isTemplate = true
+            return img
+        }
+        return NSImage(systemSymbolName: "network", accessibilityDescription: "port-port")!
+    }()
+
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @State private var eventLog = PortEventLog()
     @State private var monitor: PortMonitor?
@@ -17,7 +28,7 @@ struct PortPortApp: App {
             Label {
                 Text("port-port")
             } icon: {
-                Image(systemName: "network")
+                Image(nsImage: Self.menuBarIcon)
             }
         }
         .menuBarExtraStyle(.window)

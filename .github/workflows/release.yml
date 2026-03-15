@@ -73,6 +73,7 @@ jobs:
           mkdir -p "${MACOS}" "${RESOURCES}"
           cp .build/apple/Products/Release/port-port "${MACOS}/port-port"
           cp Sources/PortPortApp/Info.plist "${CONTENTS}/Info.plist"
+          cp Sources/PortPortApp/AppIcon.icns "${RESOURCES}/AppIcon.icns"
 
           # Update version in Info.plist
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${VERSION}" "${CONTENTS}/Info.plist"
