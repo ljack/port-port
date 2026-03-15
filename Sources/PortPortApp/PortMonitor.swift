@@ -435,9 +435,10 @@ final class PortMonitor {
     }
 
     private func requestNotificationPermission() {
-        // AppDelegate handles this now, but keep as fallback
         guard canSendNotifications else { return }
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
+        Task {
+            try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])
+        }
     }
 
     private func sendSystemNotification(title: String, body: String) {
