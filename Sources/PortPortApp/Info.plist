@@ -4,6 +4,8 @@
 <dict>
     <key>LSUIElement</key>
     <true/>
+    <key>CFBundleExecutable</key>
+    <string>port-port</string>
     <key>CFBundleName</key>
     <string>port-port</string>
     <key>CFBundleDisplayName</key>
