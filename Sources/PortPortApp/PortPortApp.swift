@@ -5,8 +5,10 @@ import UserNotifications
 @main
 struct PortPortApp: App {
     private static let menuBarIcon: NSImage = {
-        if let url = Bundle.module.url(forResource: "menubar-icon", withExtension: "png", subdirectory: "Resources"),
-           let img = NSImage(contentsOf: url) {
+        // Try main bundle first (.app), then SPM resource bundle (debug)
+        let url = Bundle.main.url(forResource: "menubar-icon", withExtension: "png")
+            ?? Bundle.module.url(forResource: "menubar-icon", withExtension: "png", subdirectory: "Resources")
+        if let url, let img = NSImage(contentsOf: url) {
             img.size = NSSize(width: 18, height: 18)
             img.isTemplate = true
             return img

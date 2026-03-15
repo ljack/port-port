@@ -74,6 +74,8 @@ jobs:
           cp .build/apple/Products/Release/port-port "${MACOS}/port-port"
           cp Sources/PortPortApp/Info.plist "${CONTENTS}/Info.plist"
           cp Sources/PortPortApp/AppIcon.icns "${RESOURCES}/AppIcon.icns"
+          cp Sources/PortPortApp/Resources/menubar-icon.png "${RESOURCES}/menubar-icon.png"
+          cp Sources/PortPortApp/Resources/menubar-icon@2x.png "${RESOURCES}/menubar-icon@2x.png"
 
           # Update version in Info.plist
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${VERSION}" "${CONTENTS}/Info.plist"
