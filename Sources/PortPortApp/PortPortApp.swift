@@ -64,10 +64,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         if Bundle.main.bundleIdentifier != nil {
             let center = UNUserNotificationCenter.current()
             center.delegate = self
-            center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
-                if let error {
-                    print("Notification auth error: \(error)")
-                }
+            Task {
+                try? await center.requestAuthorization(options: [.alert, .sound, .badge])
             }
         }
 
