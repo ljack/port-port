@@ -150,8 +150,6 @@ final class PortMonitor {
         requestNotificationPermission()
     }
 
-    nonisolated func cancel() {}
-
     func startScanning() {
         scanTask?.cancel()
         scanTask = Task { [weak self] in

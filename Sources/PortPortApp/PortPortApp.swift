@@ -53,12 +53,31 @@ struct PortPortApp: App {
 
 /// AppDelegate to handle UNUserNotificationCenter delegate for foreground delivery
 final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
+    private var welcomeController: WelcomeWindowController?
+
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        false
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
-        let center = UNUserNotificationCenter.current()
-        center.delegate = self
-        center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
-            if let error {
-                print("Notification auth error: \(error)")
+        // Notification center requires a bundle identifier
+        if Bundle.main.bundleIdentifier != nil {
+            let center = UNUserNotificationCenter.current()
+            center.delegate = self
+            center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
+                if let error {
+                    print("Notification auth error: \(error)")
+                }
+            }
+        }
+
+        // Show welcome window unless user opted out
+        let hideWelcome = UserDefaults.standard.bool(forKey: AppConstants.hideWelcomeKey)
+        if !hideWelcome {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                let controller = WelcomeWindowController()
+                self?.welcomeController = controller
+                controller.show()
             }
         }
     }
