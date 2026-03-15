@@ -107,35 +107,35 @@ final class WelcomeWindowController {
         })
 
         let hostingView = NSHostingView(rootView: view)
-        let w = NSPanel(
+        let panel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: 280, height: 380),
             styleMask: [.titled, .fullSizeContentView, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
-        w.contentView = hostingView
-        w.isMovableByWindowBackground = true
-        w.titlebarAppearsTransparent = true
-        w.titleVisibility = .hidden
-        w.isOpaque = true
-        w.backgroundColor = .windowBackgroundColor
-        w.level = .floating
-        w.hidesOnDeactivate = false
-        w.center()
+        panel.contentView = hostingView
+        panel.isMovableByWindowBackground = true
+        panel.titlebarAppearsTransparent = true
+        panel.titleVisibility = .hidden
+        panel.isOpaque = true
+        panel.backgroundColor = .windowBackgroundColor
+        panel.level = .floating
+        panel.hidesOnDeactivate = false
+        panel.center()
 
         // Shift up a bit from center
-        if let frame = w.screen?.visibleFrame {
-            let x = frame.midX - 140
-            let y = frame.midY
-            w.setFrameOrigin(NSPoint(x: x, y: y))
+        if let frame = panel.screen?.visibleFrame {
+            let originX = frame.midX - 140
+            let originY = frame.midY
+            panel.setFrameOrigin(NSPoint(x: originX, y: originY))
         }
 
-        w.isReleasedWhenClosed = false
+        panel.isReleasedWhenClosed = false
         let delegate = WindowCloseDelegate { [weak self] in self?.window = nil }
-        w.delegate = delegate
+        panel.delegate = delegate
         self.windowDelegate = delegate
-        w.orderFrontRegardless()
-        self.window = w
+        panel.orderFrontRegardless()
+        self.window = panel
     }
 
     private func animateToMenuBar() {

@@ -39,7 +39,7 @@ public final class PortScanner: Sendable {
         return Array(pids.prefix(actualCount)).filter { $0 > 0 }
     }
 
-    /// Scan a single PID for listening sockets
+    // swiftlint:disable:next function_body_length cyclomatic_complexity
     private func scanPID(_ pid: Int32) -> [PortListener] {
         let fdBufferSize = proc_pidinfo(pid, PROC_PIDLISTFDS, 0, nil, 0)
         guard fdBufferSize > 0 else { return [] }
@@ -61,15 +61,15 @@ public final class PortScanner: Sendable {
         var cachedArgs: [String]?
         var cachedTech: TechStack?
 
-        for i in 0..<actualCount {
-            let fd = fdInfos[i]
+        for fdIndex in 0..<actualCount {
+            let fdInfo = fdInfos[fdIndex]
             // Only interested in socket file descriptors
-            guard fd.proc_fdtype == PROX_FDTYPE_SOCKET else { continue }
+            guard fdInfo.proc_fdtype == PROX_FDTYPE_SOCKET else { continue }
 
             var socketInfo = socket_fdinfo()
             let infoSize = proc_pidfdinfo(
                 pid,
-                fd.proc_fd,
+                fdInfo.proc_fd,
                 PROC_PIDFDSOCKETINFO,
                 &socketInfo,
                 Int32(MemoryLayout<socket_fdinfo>.size)

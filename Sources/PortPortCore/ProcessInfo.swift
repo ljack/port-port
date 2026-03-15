@@ -14,8 +14,12 @@ public enum ProcessInfoHelper: Sendable {
         return String(cString: pathBuffer)
     }
 
+    // swiftlint:disable large_tuple
     /// Get the process name, UID, and start time for a PID
-    public static func processInfo(for pid: Int32) -> (name: String, uid: UInt32, startTime: Date?) {
+    public static func processInfo(
+        for pid: Int32
+    ) -> (name: String, uid: UInt32, startTime: Date?) {
+    // swiftlint:enable large_tuple
         var info = proc_bsdinfo()
         let size = proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, Int32(MemoryLayout<proc_bsdinfo>.size))
         guard size > 0 else {

@@ -46,52 +46,66 @@ enum MCPHandler: Sendable {
             ] as [String: Any],
             "serverInfo": [
                 "name": "port-port",
-                "version": "1.0.0",
-            ] as [String: Any],
+                "version": "1.0.0"
+            ] as [String: Any]
         ]
     }
 
     private static func toolsListResult() -> [String: Any] {
         [
             "tools": [
-                [
-                    "name": "list_ports",
-                    "description": "List all listening TCP and UDP ports on this machine. Returns a JSON array of port information including port number, protocol, PID, process name, path, working directory, tech stack, and command arguments.",
-                    "inputSchema": [
-                        "type": "object",
-                        "properties": [:] as [String: Any],
-                    ] as [String: Any],
-                ] as [String: Any],
-                [
-                    "name": "kill_port",
-                    "description": "Kill the process listening on the specified port by sending SIGTERM.",
-                    "inputSchema": [
-                        "type": "object",
-                        "properties": [
-                            "port": [
-                                "type": "number",
-                                "description": "The port number to kill the process on",
-                            ] as [String: Any]
-                        ] as [String: Any],
-                        "required": ["port"],
-                    ] as [String: Any],
-                ] as [String: Any],
-                [
-                    "name": "port_info",
-                    "description": "Get detailed information about the process listening on a specific port.",
-                    "inputSchema": [
-                        "type": "object",
-                        "properties": [
-                            "port": [
-                                "type": "number",
-                                "description": "The port number to get information about",
-                            ] as [String: Any]
-                        ] as [String: Any],
-                        "required": ["port"],
-                    ] as [String: Any],
-                ] as [String: Any],
+                listPortsToolSchema(),
+                killPortToolSchema(),
+                portInfoToolSchema()
             ] as [[String: Any]]
         ]
+    }
+
+    private static func listPortsToolSchema() -> [String: Any] {
+        [
+            "name": "list_ports",
+            "description": "List all listening TCP and UDP ports on this machine. "
+                + "Returns a JSON array of port information including port number, protocol, "
+                + "PID, process name, path, working directory, tech stack, and command arguments.",
+            "inputSchema": [
+                "type": "object",
+                "properties": [:] as [String: Any]
+            ] as [String: Any]
+        ] as [String: Any]
+    }
+
+    private static func killPortToolSchema() -> [String: Any] {
+        [
+            "name": "kill_port",
+            "description": "Kill the process listening on the specified port by sending SIGTERM.",
+            "inputSchema": [
+                "type": "object",
+                "properties": [
+                    "port": [
+                        "type": "number",
+                        "description": "The port number to kill the process on"
+                    ] as [String: Any]
+                ] as [String: Any],
+                "required": ["port"]
+            ] as [String: Any]
+        ] as [String: Any]
+    }
+
+    private static func portInfoToolSchema() -> [String: Any] {
+        [
+            "name": "port_info",
+            "description": "Get detailed information about the process listening on a specific port.",
+            "inputSchema": [
+                "type": "object",
+                "properties": [
+                    "port": [
+                        "type": "number",
+                        "description": "The port number to get information about"
+                    ] as [String: Any]
+                ] as [String: Any],
+                "required": ["port"]
+            ] as [String: Any]
+        ] as [String: Any]
     }
 
     // MARK: - Tool dispatch
@@ -157,7 +171,7 @@ enum MCPHandler: Sendable {
     private static func successResponse(id: Any?, result: [String: Any]) -> Data? {
         var response: [String: Any] = [
             "jsonrpc": "2.0",
-            "result": result,
+            "result": result
         ]
         if let id = id {
             response["id"] = id
@@ -170,8 +184,8 @@ enum MCPHandler: Sendable {
             "jsonrpc": "2.0",
             "error": [
                 "code": code,
-                "message": message,
-            ] as [String: Any],
+                "message": message
+            ] as [String: Any]
         ]
         if let id = id {
             response["id"] = id

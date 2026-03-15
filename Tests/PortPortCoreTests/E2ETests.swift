@@ -154,7 +154,12 @@ struct E2ETests {
         try process.run()
         defer { process.terminate() }
 
-        let request = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{},\"clientInfo\":{\"name\":\"test\",\"version\":\"1.0\"}}}\n"
+        let request = """
+            {"jsonrpc":"2.0","id":1,"method":"initialize",\
+            "params":{"protocolVersion":"2024-11-05","capabilities":{},\
+            "clientInfo":{"name":"test","version":"1.0"}}}
+            """
+            .trimmingCharacters(in: .whitespacesAndNewlines) + "\n"
         inputPipe.fileHandleForWriting.write(request.data(using: .utf8)!)
         inputPipe.fileHandleForWriting.closeFile()
 

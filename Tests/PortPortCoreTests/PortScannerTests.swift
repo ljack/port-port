@@ -25,8 +25,8 @@ struct PortScannerTests {
         let scanner = PortScanner()
         let results = scanner.scan()
         guard results.count >= 2 else { return }
-        for i in 1..<results.count {
-            #expect(results[i].port >= results[i - 1].port)
+        for index in 1..<results.count {
+            #expect(results[index].port >= results[index - 1].port)
         }
     }
 

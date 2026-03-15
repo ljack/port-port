@@ -14,7 +14,7 @@ public enum DevServerDetector {
         "dotnet",
         "php", "php-fpm",
         "nodemon", "tsx", "ts-node", "npx",
-        "cargo",
+        "cargo"
     ]
 
     /// Args that strongly indicate a dev server (specific enough to avoid false positives)
@@ -33,7 +33,7 @@ public enum DevServerDetector {
         "yarn dev", "yarn start",
         "pnpm dev", "pnpm start",
         "bun run", "bun dev",
-        "deno run", "deno serve",
+        "deno run", "deno serve"
     ]
 
     /// Directories that indicate NOT a dev project (system/app paths under home)
@@ -44,7 +44,7 @@ public enum DevServerDetector {
         "/.claude/", "/.npm/", "/.yarn/", "/.bun/",
         "/.cargo/", "/.rustup/", "/.local/",
         "/.nvm/", "/.volta/", "/.sdkman/",
-        "/Downloads/",
+        "/Downloads/"
     ]
 
     public static func isDev(_ listener: PortListener) -> Bool {
@@ -103,8 +103,8 @@ public enum DevServerDetector {
         guard dir.hasPrefix(home) else { return false }
 
         // Exclude system/app directories under home
-        for pattern in nonDevDirPatterns {
-            if dir.contains(pattern) { return false }
+        for pattern in nonDevDirPatterns where dir.contains(pattern) {
+            return false
         }
 
         return true

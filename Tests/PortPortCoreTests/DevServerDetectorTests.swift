@@ -25,72 +25,75 @@ struct DevServerDetectorTests {
     }
 
     @Test func pythonInProjectDir() {
-        let l = makeListener(processPath: "/usr/bin/python3", techStack: .python,
-                            commandArgs: ["/usr/bin/python3", "-m", "http.server", "8080"])
-        #expect(DevServerDetector.isDev(l))
+        let listener = makeListener(processPath: "/usr/bin/python3", techStack: .python,
+                                    commandArgs: ["/usr/bin/python3", "-m", "http.server", "8080"])
+        #expect(DevServerDetector.isDev(listener))
     }
 
     @Test func nodeInProjectDir() {
-        let l = makeListener(processPath: "/usr/local/bin/node", techStack: .nodeJS,
-                            commandArgs: ["/usr/local/bin/node", "server.js"])
-        #expect(DevServerDetector.isDev(l))
+        let listener = makeListener(processPath: "/usr/local/bin/node", techStack: .nodeJS,
+                                    commandArgs: ["/usr/local/bin/node", "server.js"])
+        #expect(DevServerDetector.isDev(listener))
     }
 
     @Test func systemProcessNotDev() {
-        let l = makeListener(processName: "ControlCenter",
-                            processPath: "/System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter",
-                            workingDirectory: "/")
-        #expect(!DevServerDetector.isDev(l))
+        let listener = makeListener(
+            processName: "ControlCenter",
+            processPath: "/System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter",
+            workingDirectory: "/")
+        #expect(!DevServerDetector.isDev(listener))
     }
 
     @Test func appInLibraryNotDev() {
-        let l = makeListener(processName: "Notion Helper",
-                            processPath: "/Applications/Notion.app/Contents/MacOS/Notion Helper",
-                            workingDirectory: "\(home)/Library/Containers/notion")
-        #expect(!DevServerDetector.isDev(l))
+        let listener = makeListener(
+            processName: "Notion Helper",
+            processPath: "/Applications/Notion.app/Contents/MacOS/Notion Helper",
+            workingDirectory: "\(home)/Library/Containers/notion")
+        #expect(!DevServerDetector.isDev(listener))
     }
 
     @Test func daemonInClaudeDirNotDev() {
-        let l = makeListener(processName: "bun",
-                            processPath: "\(home)/.bun/bin/bun",
-                            workingDirectory: "\(home)/.claude/plugins/cache/foo",
-                            techStack: .bun,
-                            commandArgs: ["bun", "worker-service.cjs", "--daemon"])
-        #expect(!DevServerDetector.isDev(l))
+        let listener = makeListener(processName: "bun",
+                                    processPath: "\(home)/.bun/bin/bun",
+                                    workingDirectory: "\(home)/.claude/plugins/cache/foo",
+                                    techStack: .bun,
+                                    commandArgs: ["bun", "worker-service.cjs", "--daemon"])
+        #expect(!DevServerDetector.isDev(listener))
     }
 
     @Test func viteArgAlwaysDev() {
-        let l = makeListener(processPath: "/usr/local/bin/node",
-                            workingDirectory: "/",
-                            commandArgs: ["node", "node_modules/.bin/vite"])
-        #expect(DevServerDetector.isDev(l))
+        let listener = makeListener(processPath: "/usr/local/bin/node",
+                                    workingDirectory: "/",
+                                    commandArgs: ["node", "node_modules/.bin/vite"])
+        #expect(DevServerDetector.isDev(listener))
     }
 
     @Test func npmRunDevAlwaysDev() {
-        let l = makeListener(processPath: "/usr/local/bin/node",
-                            workingDirectory: "/tmp/project",
-                            commandArgs: ["node", "npm", "run", "dev"])
-        #expect(DevServerDetector.isDev(l))
+        let listener = makeListener(processPath: "/usr/local/bin/node",
+                                    workingDirectory: "/tmp/project",
+                                    commandArgs: ["node", "npm", "run", "dev"])
+        #expect(DevServerDetector.isDev(listener))
     }
 
     @Test func downloadsNotDev() {
-        let l = makeListener(processName: "bun",
-                            processPath: "\(home)/.bun/bin/bun",
-                            workingDirectory: "\(home)/Downloads/something",
-                            techStack: .bun)
-        #expect(!DevServerDetector.isDev(l))
+        let listener = makeListener(processName: "bun",
+                                    processPath: "\(home)/.bun/bin/bun",
+                                    workingDirectory: "\(home)/Downloads/something",
+                                    techStack: .bun)
+        #expect(!DevServerDetector.isDev(listener))
     }
 
     @Test func rustTargetDebugIsDev() {
-        let l = makeListener(processPath: "\(home)/_dev/myrust/target/debug/myserver",
-                            workingDirectory: "\(home)/_dev/myrust")
-        #expect(DevServerDetector.isDev(l))
+        let listener = makeListener(processPath: "\(home)/_dev/myrust/target/debug/myserver",
+                                    workingDirectory: "\(home)/_dev/myrust")
+        #expect(DevServerDetector.isDev(listener))
     }
 
     @Test func googleDriveNotDev() {
-        let l = makeListener(processName: "Google Drive",
-                            processPath: "/Applications/Google Drive.app/Contents/MacOS/Google Drive",
-                            workingDirectory: "\(home)/Google/")
-        #expect(!DevServerDetector.isDev(l))
+        let listener = makeListener(
+            processName: "Google Drive",
+            processPath: "/Applications/Google Drive.app/Contents/MacOS/Google Drive",
+            workingDirectory: "\(home)/Google/")
+        #expect(!DevServerDetector.isDev(listener))
     }
 }

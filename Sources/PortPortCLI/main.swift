@@ -11,14 +11,14 @@ func hasFlag(_ names: String...) -> Bool {
 }
 
 func flagValue(_ names: String...) -> String? {
-    for (i, arg) in args.enumerated() {
-        if names.contains(arg), i + 1 < args.count {
-            return Array(args)[i + 1]
+    for (index, arg) in args.enumerated() where names.contains(arg) {
+        if index + 1 < args.count {
+            return Array(args)[index + 1]
         }
-        for name in names {
-            if arg.hasPrefix("\(name)=") {
-                return String(arg.dropFirst(name.count + 1))
-            }
+    }
+    for arg in args {
+        for name in names where arg.hasPrefix("\(name)=") {
+            return String(arg.dropFirst(name.count + 1))
         }
     }
     return nil

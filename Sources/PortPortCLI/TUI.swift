@@ -2,14 +2,26 @@ import Darwin
 import Foundation
 import PortPortCore
 
+/// Represents a TUI event (start/stop notification)
+struct TUIEvent {
+    let date: Date
+    let text: String
+    let isStart: Bool
+}
+
+/// Pad a string to exactly `width` visible characters, truncating or padding as needed.
+private func padVisible(_ str: String, _ width: Int) -> String {
+    str.padding(toLength: width, withPad: " ", startingAt: 0)
+}
+
 /// Interactive TUI watch mode
 final class TUI: @unchecked Sendable {
     private let scanner = PortScanner()
     private let history = PortHistoryStore()
     private let timeFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "HH:mm:ss"
-        return f
+        let fmt = DateFormatter()
+        fmt.dateFormat = "HH:mm:ss"
+        return fmt
     }()
 
     // State
@@ -17,7 +29,7 @@ final class TUI: @unchecked Sendable {
     private var filtered: [PortListener] = []
     private var previousKeys: Set<String> = []
     private var pendingDepartures: [String: (listener: PortListener, at: Date)] = [:]
-    private var events: [(date: Date, text: String, isStart: Bool)] = []
+    private var events: [TUIEvent] = []
     private var selectedIndex = 0
     private var scrollOffset = 0
     private var isFirstScan = true
@@ -28,27 +40,13 @@ final class TUI: @unchecked Sendable {
     private var devOnly = true
     private var gracePeriod: TimeInterval = 15.0
 
+    private var previousListenerMap: [String: PortListener] = [:]
+
     func run() {
         Terminal.enableRawMode()
         Terminal.enterAlternateScreen()
         Terminal.hideCursor()
-
-        // Handle SIGINT/SIGTERM gracefully
-        signal(SIGINT) { _ in
-            Terminal.showCursor()
-            Terminal.leaveAlternateScreen()
-            Terminal.disableRawMode()
-            exit(0)
-        }
-        signal(SIGTERM) { _ in
-            Terminal.showCursor()
-            Terminal.leaveAlternateScreen()
-            Terminal.disableRawMode()
-            exit(0)
-        }
-
-        // Handle SIGWINCH (terminal resize)
-        signal(SIGWINCH) { _ in }
+        installSignalHandlers()
 
         while running {
             scanWithDepartures()
@@ -69,28 +67,27 @@ final class TUI: @unchecked Sendable {
         Terminal.disableRawMode()
     }
 
-    private var previousListenerMap: [String: PortListener] = [:]
+    private func installSignalHandlers() {
+        let cleanup: @convention(c) (Int32) -> Void = { _ in
+            Terminal.showCursor(); Terminal.leaveAlternateScreen(); Terminal.disableRawMode(); exit(0)
+        }
+        signal(SIGINT, cleanup)
+        signal(SIGTERM, cleanup)
+        signal(SIGWINCH) { _ in }
+    }
 
     private func scanWithDepartures() {
         listeners = scanner.scan()
         history.update(from: listeners)
 
-        let currentMap = Dictionary(listeners.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let currentMap = Dictionary(
+            listeners.map { ($0.id, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
         let currentKeys = Set(currentMap.keys)
 
         if !isFirstScan {
-            let arrived = currentKeys.subtracting(previousKeys)
-            for key in arrived {
-                if pendingDepartures.removeValue(forKey: key) != nil { continue }
-                guard let l = currentMap[key], matchesFilters(l) else { continue }
-                addEvent("\(l.processName) started on port \(l.port)", isStart: true)
-            }
-
-            let departed = previousKeys.subtracting(currentKeys)
-            for key in departed {
-                guard let l = previousListenerMap[key], matchesFilters(l) else { continue }
-                pendingDepartures[key] = (l, Date())
-            }
+            detectArrivalsAndDepartures(currentMap: currentMap, currentKeys: currentKeys)
         }
 
         previousKeys = currentKeys
@@ -99,19 +96,38 @@ final class TUI: @unchecked Sendable {
 
         // Grace period check
         let now = Date()
-        for (key, dep) in pendingDepartures {
-            if now.timeIntervalSince(dep.at) >= gracePeriod {
-                pendingDepartures.removeValue(forKey: key)
-                addEvent("\(dep.listener.processName) stopped (was port \(dep.listener.port))", isStart: false)
-            }
+        for (key, dep) in pendingDepartures where now.timeIntervalSince(dep.at) >= gracePeriod {
+            pendingDepartures.removeValue(forKey: key)
+            addEvent(
+                "\(dep.listener.processName) stopped (was port \(dep.listener.port))",
+                isStart: false
+            )
         }
 
         applyFilters()
     }
 
-    private func matchesFilters(_ l: PortListener) -> Bool {
-        if mineOnly && l.uid != getuid() { return false }
-        if devOnly && !DevServerDetector.isDev(l) { return false }
+    private func detectArrivalsAndDepartures(
+        currentMap: [String: PortListener],
+        currentKeys: Set<String>
+    ) {
+        let arrived = currentKeys.subtracting(previousKeys)
+        for key in arrived {
+            if pendingDepartures.removeValue(forKey: key) != nil { continue }
+            guard let listener = currentMap[key], matchesFilters(listener) else { continue }
+            addEvent("\(listener.processName) started on port \(listener.port)", isStart: true)
+        }
+
+        let departed = previousKeys.subtracting(currentKeys)
+        for key in departed {
+            guard let listener = previousListenerMap[key], matchesFilters(listener) else { continue }
+            pendingDepartures[key] = (listener, Date())
+        }
+    }
+
+    private func matchesFilters(_ listener: PortListener) -> Bool {
+        if mineOnly && listener.uid != getuid() { return false }
+        if devOnly && !DevServerDetector.isDev(listener) { return false }
         return true
     }
 
@@ -123,24 +139,23 @@ final class TUI: @unchecked Sendable {
     }
 
     private func addEvent(_ text: String, isStart: Bool) {
-        events.insert((Date(), text, isStart), at: 0)
+        events.insert(TUIEvent(date: Date(), text: text, isStart: isStart), at: 0)
         if events.count > 50 { events.removeLast() }
     }
 
+    // swiftlint:disable:next cyclomatic_complexity
     private func handleKey(_ key: Terminal.Key) {
         switch key {
         case .char("q"), .char("Q"):
             running = false
         case .char("j"), .down:
             if selectedIndex < filtered.count - 1 { selectedIndex += 1 }
-        case .char("k"), .up:
+        case .char("k"), .arrowUp:
             if selectedIndex > 0 { selectedIndex -= 1 }
         case .char("m"), .char("M"):
-            mineOnly.toggle()
-            applyFilters()
+            mineOnly.toggle(); applyFilters()
         case .char("d"), .char("D"):
-            devOnly.toggle()
-            applyFilters()
+            devOnly.toggle(); applyFilters()
         case .char("x"), .char("X"):
             killSelected(force: false)
         case .char("K"):
@@ -150,7 +165,7 @@ final class TUI: @unchecked Sendable {
         case .char("t"), .char("T"):
             openTerminal()
         case .char("r"), .char("R"):
-            refresh()
+            scanWithDepartures()
         case .escape:
             break
         default:
@@ -160,20 +175,21 @@ final class TUI: @unchecked Sendable {
 
     private func killSelected(force: Bool) {
         guard selectedIndex < filtered.count else { return }
-        let l = filtered[selectedIndex]
-        let sig: Int32 = force ? SIGKILL : SIGTERM
-        kill(l.pid, sig)
-        addEvent("Sent \(force ? "SIGKILL" : "SIGTERM") to \(l.processName) (PID \(l.pid))", isStart: false)
+        let listener = filtered[selectedIndex]
+        kill(listener.pid, force ? SIGKILL : SIGTERM)
+        addEvent(
+            "Sent \(force ? "SIGKILL" : "SIGTERM") to \(listener.processName) (PID \(listener.pid))",
+            isStart: false
+        )
         usleep(500_000)
         scanWithDepartures()
     }
 
     private func openBrowser() {
         guard selectedIndex < filtered.count else { return }
-        let port = filtered[selectedIndex].port
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-        process.arguments = ["http://localhost:\(port)"]
+        process.arguments = ["http://localhost:\(filtered[selectedIndex].port)"]
         try? process.run()
     }
 
@@ -181,119 +197,98 @@ final class TUI: @unchecked Sendable {
         guard selectedIndex < filtered.count else { return }
         let cwd = filtered[selectedIndex].workingDirectory
         guard !cwd.isEmpty else { return }
-        let script = "tell application \"Terminal\" to do script \"cd \(cwd.replacingOccurrences(of: "\"", with: "\\\""))\""
+        let escaped = cwd.replacingOccurrences(of: "\"", with: "\\\"")
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-        process.arguments = ["-e", script]
+        process.arguments = ["-e", "tell application \"Terminal\" to do script \"cd \(escaped)\""]
         try? process.run()
-    }
-
-    private func refresh() {
-        scanWithDepartures()
     }
 
     // MARK: - Rendering
 
-    /// Pad a string to exactly `width` visible characters, truncating or padding as needed.
-    /// ANSI escape codes are not counted toward width.
-    private func padVisible(_ s: String, _ width: Int) -> String {
-        s.padding(toLength: width, withPad: " ", startingAt: 0)
-    }
-
     private func render() {
         let (rows, cols) = Terminal.size()
-        var buf = ""
-        let sep = Terminal.dim(String(repeating: "─", count: cols))
+        var buf = "\u{1b}[H"
+        let sep = Terminal.dim(String(repeating: "\u{2500}", count: cols))
+        buf += renderHeader(cols: cols, separator: sep)
+        buf += renderPortList(rows: rows, cols: cols)
+        buf += renderEvents(separator: sep)
+        buf += renderHelpBar(separator: sep)
+        Terminal.flush(buf)
+    }
 
-        buf += "\u{1b}[H" // Move to top-left
-
-        // Header (row 1)
+    private func renderHeader(cols: Int, separator: String) -> String {
         let mineTag = mineOnly ? Terminal.bgBlue(" Mine ") : Terminal.dim(" Mine ")
         let devTag = devOnly ? Terminal.bgBlue(" Dev ") : Terminal.dim(" Dev ")
         let graceTag = Terminal.dim(" Grace:\(Int(gracePeriod))s ")
         let countStr = Terminal.bold("\(filtered.count)") + Terminal.dim(" ports")
         let header = " port-port  \(mineTag) \(devTag) \(graceTag)  \(countStr)"
-        buf += "\u{1b}[2K" + header + "\n"
-
-        // Separator
-        buf += "\u{1b}[2K" + sep + "\n"
-
-        // Fixed column widths (visible chars)
-        let prefixW = 2   // "● " or "  "
-        let portW = 7
-        let protoW = 5
-        let techW = 8
-        let uptimeW = 8
-        let cmdW = 40
-        let fixedW = prefixW + portW + 1 + protoW + 1 + techW + 1 + uptimeW + 1 + cmdW + 1  // separating spaces
-        let dirW = max(10, cols - fixedW)
-
-        // Column headers (row 3)
         let colHeader = "  "
-            + padVisible("PORT", portW) + " "
-            + padVisible("PROTO", protoW) + " "
-            + padVisible("TECH", techW) + " "
-            + padVisible("UPTIME", uptimeW) + " "
-            + padVisible("COMMAND", cmdW) + " "
-            + "DIRECTORY"
-        buf += "\u{1b}[2K" + Terminal.dim(colHeader) + "\n"
+            + padVisible("PORT", 7) + " " + padVisible("PROTO", 5) + " "
+            + padVisible("TECH", 8) + " " + padVisible("UPTIME", 8) + " "
+            + padVisible("COMMAND", 40) + " " + "DIRECTORY"
+        return "\u{1b}[2K" + header + "\n"
+            + "\u{1b}[2K" + separator + "\n"
+            + "\u{1b}[2K" + Terminal.dim(colHeader) + "\n"
+    }
 
-        // Port list
+    private func renderPortList(rows: Int, cols: Int) -> String {
+        let fixedW = 2 + 7 + 1 + 5 + 1 + 8 + 1 + 8 + 1 + 40 + 1
+        let dirW = max(10, cols - fixedW)
+        var buf = ""
         let listHeight = rows - 7 - min(events.count, 4)
         if selectedIndex < scrollOffset { scrollOffset = selectedIndex }
         if selectedIndex >= scrollOffset + listHeight { scrollOffset = selectedIndex - listHeight + 1 }
 
-        for i in 0..<listHeight {
+        for idx in 0..<listHeight {
             buf += "\u{1b}[2K"
-            let idx = scrollOffset + i
-            if idx < filtered.count {
-                let l = filtered[idx]
-                let selected = idx == selectedIndex
-                let cwd = PathUtils.abbreviate(l.workingDirectory)
-
-                let dot = Terminal.green("●")
-                let port = padVisible(String(l.port), portW)
-                let proto = padVisible(l.protocol.rawValue, protoW)
-                let techRaw = Formatter.techPlain(l.techStack)
-                let tech = Formatter.techBadge(l.techStack) + String(repeating: " ", count: max(0, techW - techRaw.count))
-                let uptime = padVisible(Formatter.formatUptime(l.startTime), uptimeW)
-                let cmd = padVisible(String(l.command.prefix(cmdW)), cmdW)
-                let cwdStr = String(cwd.prefix(dirW))
-
-                // Build the content part (visible width = fixedW + cwd visible length)
-                let content = "\(dot) \(port) \(proto) \(tech) \(uptime) \(cmd) \(Terminal.dim(cwdStr))"
-                // Pad the line to full terminal width for consistent highlight
-                let cwdVisible = cwdStr.count
-                let trailingPad = max(0, cols - fixedW - cwdVisible)
-
-                if selected {
-                    buf += Terminal.inverse(content + String(repeating: " ", count: trailingPad))
-                } else {
-                    buf += content
-                }
+            let rowIndex = scrollOffset + idx
+            if rowIndex < filtered.count {
+                buf += renderPortRow(
+                    filtered[rowIndex], selected: rowIndex == selectedIndex,
+                    dirW: dirW, cols: cols, fixedW: fixedW
+                )
             }
             buf += "\n"
         }
+        return buf
+    }
 
-        // Events section
-        buf += "\u{1b}[2K" + sep + "\n"
+    private func renderPortRow(_ listener: PortListener, selected: Bool, dirW: Int, cols: Int, fixedW: Int) -> String {
+        let cwd = PathUtils.abbreviate(listener.workingDirectory)
+        let techRaw = Formatter.techPlain(listener.techStack)
+        let cwdStr = String(cwd.prefix(dirW))
+        let content = "\(Terminal.green("\u{25CF}")) "
+            + "\(padVisible(String(listener.port), 7)) "
+            + "\(padVisible(listener.protocol.rawValue, 5)) "
+            + "\(Formatter.techBadge(listener.techStack))\(String(repeating: " ", count: max(0, 8 - techRaw.count))) "
+            + "\(padVisible(Formatter.formatUptime(listener.startTime), 8)) "
+            + "\(padVisible(String(listener.command.prefix(40)), 40)) "
+            + Terminal.dim(cwdStr)
+        let trailingPad = max(0, cols - fixedW - cwdStr.count)
+        return selected
+            ? Terminal.inverse(content + String(repeating: " ", count: trailingPad))
+            : content
+    }
+
+    private func renderEvents(separator: String) -> String {
+        var buf = "\u{1b}[2K" + separator + "\n"
         let eventCount = min(events.count, 3)
         if eventCount > 0 {
-            for i in 0..<eventCount {
-                buf += "\u{1b}[2K"
-                let e = events[i]
-                let timeStr = formatTime(e.date)
-                let icon = e.isStart ? Terminal.green("▲") : Terminal.yellow("▼")
-                buf += " \(icon) \(Terminal.dim(timeStr)) \(e.text)\n"
+            for idx in 0..<eventCount {
+                let event = events[idx]
+                let icon = event.isStart ? Terminal.green("\u{25B2}") : Terminal.yellow("\u{25BC}")
+                buf += "\u{1b}[2K \(icon) \(Terminal.dim(timeFormatter.string(from: event.date))) \(event.text)\n"
             }
         } else {
             buf += "\u{1b}[2K" + Terminal.dim(" No events yet") + "\n"
         }
+        return buf
+    }
 
-        // Help bar
-        buf += "\u{1b}[2K" + sep + "\n"
-        buf += "\u{1b}[2K"
-        let help = " \(Terminal.bold("j/k")) navigate  "
+    private func renderHelpBar(separator: String) -> String {
+        "\u{1b}[2K" + separator + "\n\u{1b}[2K"
+            + " \(Terminal.bold("j/k")) navigate  "
             + "\(Terminal.bold("x")) kill  "
             + "\(Terminal.bold("K")) force kill  "
             + "\(Terminal.bold("o")) browser  "
@@ -302,12 +297,5 @@ final class TUI: @unchecked Sendable {
             + "\(Terminal.bold("d")) dev  "
             + "\(Terminal.bold("r")) refresh  "
             + "\(Terminal.bold("q")) quit"
-        buf += help
-
-        Terminal.flush(buf)
-    }
-
-    private func formatTime(_ date: Date) -> String {
-        timeFormatter.string(from: date)
     }
 }

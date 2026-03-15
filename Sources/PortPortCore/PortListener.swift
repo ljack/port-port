@@ -63,7 +63,7 @@ public enum TechStack: String, Sendable, Codable, Hashable, CaseIterable {
     case python = "Python"
     case java = "Java"
     case ruby = "Ruby"
-    case go = "Go"
+    case go = "Go" // swiftlint:disable:this identifier_name
     case rust = "Rust"
     case deno = "Deno"
     case bun = "Bun"

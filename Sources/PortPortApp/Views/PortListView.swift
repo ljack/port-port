@@ -55,31 +55,79 @@ struct PortListView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            headerView
+            PortListHeaderView(
+                runningCount: runningCount,
+                events: monitor.events,
+                showEventLog: $showEventLog,
+                onOpenEventLog: { openWindow(id: "event-log") },
+                onRefresh: { Task { await monitor.performScan() } }
+            )
             Divider()
 
             // Toast for latest event
             if let event = monitor.latestEvent {
-                toastView(event)
+                PortListToastView(event: event) {
+                    monitor.latestEvent = nil
+                }
                 Divider()
             }
 
-            filterBar
+            PortListFilterBar(
+                searchText: $searchText,
+                monitor: monitor,
+                filterTech: $filterTech,
+                activeTechStacks: activeTechStacks
+            )
             Divider()
 
             if showEventLog {
-                eventLogView
+                PortListEventLogSection(monitor: monitor)
                 Divider()
             }
 
             listContent
             Divider()
-            footerView
+            PortListFooterView(monitor: monitor)
         }
         .background(.ultraThinMaterial)
     }
 
-    private var headerView: some View {
+    @ViewBuilder
+    private var listContent: some View {
+        if filteredItems.isEmpty {
+            ContentUnavailableView {
+                Label("No Listeners", systemImage: "network.slash")
+            } description: {
+                if searchText.isEmpty && filterTech == nil {
+                    Text("No TCP/UDP listeners detected")
+                } else {
+                    Text("No matches for current filter")
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            ScrollView {
+                VStack(spacing: 1) {
+                    ForEach(filteredItems) { item in
+                        PortRowView(item: item, monitor: monitor)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+        }
+    }
+}
+
+// MARK: - Extracted Subviews
+
+struct PortListHeaderView: View {
+    let runningCount: Int
+    let events: [PortEvent]
+    @Binding var showEventLog: Bool
+    let onOpenEventLog: () -> Void
+    let onRefresh: () -> Void
+
+    var body: some View {
         HStack {
             Image(systemName: "network")
                 .foregroundStyle(.secondary)
@@ -91,14 +139,14 @@ struct PortListView: View {
                 .foregroundStyle(.secondary)
 
             Button("Event Log", systemImage: "list.bullet.rectangle") {
-                openWindow(id: "event-log")
+                onOpenEventLog()
             }
             .labelStyle(.iconOnly)
             .buttonStyle(.plain)
             .font(.caption)
             .foregroundStyle(.secondary)
 
-            if !monitor.events.isEmpty {
+            if !events.isEmpty {
                 Button("Recent Events", systemImage: "bell.badge") {
                     showEventLog.toggle()
                 }
@@ -109,7 +157,7 @@ struct PortListView: View {
             }
 
             Button("Refresh", systemImage: "arrow.clockwise") {
-                Task { await monitor.performScan() }
+                onRefresh()
             }
             .labelStyle(.iconOnly)
             .buttonStyle(.plain)
@@ -118,8 +166,13 @@ struct PortListView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
     }
+}
 
-    private func toastView(_ event: PortEvent) -> some View {
+struct PortListToastView: View {
+    let event: PortEvent
+    let onDismiss: () -> Void
+
+    var body: some View {
         HStack(spacing: 6) {
             Image(systemName: event.icon)
                 .foregroundStyle(event.kind == .started ? .green : .orange)
@@ -129,7 +182,7 @@ struct PortListView: View {
                 .lineLimit(1)
             Spacer()
             Button {
-                monitor.latestEvent = nil
+                onDismiss()
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 8))
@@ -143,10 +196,17 @@ struct PortListView: View {
             ? Color.green.opacity(0.1)
             : Color.orange.opacity(0.1))
         .transition(.move(edge: .top).combined(with: .opacity))
-        .animation(.easeInOut(duration: 0.3), value: monitor.latestEvent?.id)
+        .animation(.easeInOut(duration: 0.3), value: event.id)
     }
+}
 
-    private var filterBar: some View {
+struct PortListFilterBar: View {
+    @Binding var searchText: String
+    @Bindable var monitor: PortMonitor
+    @Binding var filterTech: TechStack?
+    let activeTechStacks: [TechStack]
+
+    var body: some View {
         HStack(spacing: 6) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(.tertiary)
@@ -162,7 +222,10 @@ struct PortListView: View {
                     .font(.caption2)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(Color.accentColor.opacity(monitor.myPortsOnly ? 0.2 : 0.05), in: RoundedRectangle(cornerRadius: 4))
+                    .background(
+                        Color.accentColor.opacity(monitor.myPortsOnly ? 0.2 : 0.05),
+                        in: RoundedRectangle(cornerRadius: 4)
+                    )
                     .foregroundStyle(monitor.myPortsOnly ? .primary : .secondary)
             }
             .buttonStyle(.plain)
@@ -175,7 +238,10 @@ struct PortListView: View {
                     .font(.caption2)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(Color.accentColor.opacity(monitor.devOnly ? 0.2 : 0.05), in: RoundedRectangle(cornerRadius: 4))
+                    .background(
+                        Color.accentColor.opacity(monitor.devOnly ? 0.2 : 0.05),
+                        in: RoundedRectangle(cornerRadius: 4)
+                    )
                     .foregroundStyle(monitor.devOnly ? .primary : .secondary)
             }
             .buttonStyle(.plain)
@@ -215,8 +281,12 @@ struct PortListView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
     }
+}
 
-    private var eventLogView: some View {
+struct PortListEventLogSection: View {
+    @Bindable var monitor: PortMonitor
+
+    var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text("Event Log")
@@ -247,7 +317,9 @@ struct PortListView: View {
                         ForEach(monitor.events.prefix(20)) { event in
                             HStack(spacing: 6) {
                                 Image(systemName: event.icon)
-                                    .foregroundStyle(event.kind == .started ? .green : .orange)
+                                    .foregroundStyle(
+                                        event.kind == .started ? .green : .orange
+                                    )
                                     .font(.system(size: 9))
                                 Text(event.title)
                                     .font(.caption2)
@@ -267,33 +339,12 @@ struct PortListView: View {
         }
         .background(Color.primary.opacity(0.03))
     }
+}
 
-    @ViewBuilder
-    private var listContent: some View {
-        if filteredItems.isEmpty {
-            ContentUnavailableView {
-                Label("No Listeners", systemImage: "network.slash")
-            } description: {
-                if searchText.isEmpty && filterTech == nil {
-                    Text("No TCP/UDP listeners detected")
-                } else {
-                    Text("No matches for current filter")
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else {
-            ScrollView {
-                VStack(spacing: 1) {
-                    ForEach(filteredItems) { item in
-                        PortRowView(item: item, monitor: monitor)
-                    }
-                }
-                .padding(.vertical, 4)
-            }
-        }
-    }
+struct PortListFooterView: View {
+    @Bindable var monitor: PortMonitor
 
-    private var footerView: some View {
+    var body: some View {
         HStack {
             if !monitor.history.entries.isEmpty {
                 Button("Clear History") {

@@ -3,6 +3,7 @@ import PortPortCore
 
 /// Formats port data for CLI output
 enum Formatter {
+    // swiftlint:disable:next cyclomatic_complexity
     static func techBadge(_ tech: TechStack) -> String {
         switch tech {
         case .nodeJS: return Terminal.green("Node.js")
@@ -21,7 +22,7 @@ enum Formatter {
     }
 
     /// The visible (non-ANSI) text shown by techBadge
-    static func techPlain(_ tech: TechStack) -> String {
+    static func techPlain(_ tech: TechStack) -> String { // swiftlint:disable:this cyclomatic_complexity
         switch tech {
         case .nodeJS: "Node.js"
         case .python: "Python"
@@ -45,26 +46,33 @@ enum Formatter {
         }
 
         var lines: [String] = []
-        func pad(_ s: String, _ w: Int) -> String {
-            s.padding(toLength: w, withPad: " ", startingAt: 0)
+        func pad(_ str: String, _ width: Int) -> String {
+            str.padding(toLength: width, withPad: " ", startingAt: 0)
         }
 
-        let header = "\(pad("PORT", 7)) \(pad("PROTO", 5)) \(pad("TECH", 8)) \(pad("UPTIME", 10)) \(pad("COMMAND", 40)) DIRECTORY"
+        let header = "\(pad("PORT", 7)) \(pad("PROTO", 5)) \(pad("TECH", 8)) "
+            + "\(pad("UPTIME", 10)) \(pad("COMMAND", 40)) DIRECTORY"
         lines.append(color ? Terminal.bold(header) : header)
 
-        for l in listeners {
-            let cwd = PathUtils.abbreviate(l.workingDirectory)
-            let port = pad(String(l.port), 7)
-            let proto = pad(l.protocol.rawValue, 5)
-            let techRaw = techPlain(l.techStack)
-            let cmd = pad(String(l.command.prefix(40)), 40)
-            let uptime = pad(formatUptime(l.startTime), 10)
+        for listener in listeners {
+            let cwd = PathUtils.abbreviate(listener.workingDirectory)
+            let port = pad(String(listener.port), 7)
+            let proto = pad(listener.protocol.rawValue, 5)
+            let techRaw = techPlain(listener.techStack)
+            let cmd = pad(String(listener.command.prefix(40)), 40)
+            let uptime = pad(formatUptime(listener.startTime), 10)
 
             if color {
-                let techStr = techBadge(l.techStack) + String(repeating: " ", count: max(0, 8 - techRaw.count))
-                lines.append("\(Terminal.bold(port)) \(Terminal.dim(proto)) \(techStr) \(uptime) \(cmd) \(Terminal.dim(cwd))")
+                let techStr = techBadge(listener.techStack)
+                    + String(repeating: " ", count: max(0, 8 - techRaw.count))
+                lines.append(
+                    "\(Terminal.bold(port)) \(Terminal.dim(proto)) "
+                    + "\(techStr) \(uptime) \(cmd) \(Terminal.dim(cwd))"
+                )
             } else {
-                lines.append("\(port) \(proto) \(pad(techRaw, 8)) \(uptime) \(cmd) \(cwd)")
+                lines.append(
+                    "\(port) \(proto) \(pad(techRaw, 8)) \(uptime) \(cmd) \(cwd)"
+                )
             }
         }
         return lines.joined(separator: "\n")
@@ -83,9 +91,9 @@ enum Formatter {
         let elapsed = Int(Date().timeIntervalSince(start))
         if elapsed < 60 { return "\(elapsed)s" }
         if elapsed < 3600 { return "\(elapsed / 60)m\(elapsed % 60)s" }
-        let h = elapsed / 3600
-        let m = (elapsed % 3600) / 60
-        if h < 24 { return "\(h)h\(m)m" }
-        return "\(h / 24)d\(h % 24)h"
+        let hours = elapsed / 3600
+        let mins = (elapsed % 3600) / 60
+        if hours < 24 { return "\(hours)h\(mins)m" }
+        return "\(hours / 24)d\(hours % 24)h"
     }
 }

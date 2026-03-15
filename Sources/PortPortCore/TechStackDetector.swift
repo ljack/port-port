@@ -2,6 +2,7 @@ import Foundation
 
 /// Detects the technology stack from a process executable path and arguments
 public enum TechStackDetector: Sendable {
+    // swiftlint:disable:next cyclomatic_complexity
     public static func detect(path: String, args: [String] = []) -> TechStack {
         let lowered = path.lowercased()
 
@@ -47,27 +48,36 @@ public enum TechStackDetector: Sendable {
 
         // Check args for additional hints
         for arg in args {
-            let a = arg.lowercased()
-            if a.hasSuffix(".js") || a.hasSuffix(".mjs") || a.hasSuffix(".cjs") || a.contains("next") || a.contains("vite") || a.contains("webpack") {
-                return .nodeJS
-            }
-            if a.hasSuffix(".py") || a.contains("django") || a.contains("flask") || a.contains("fastapi") {
-                return .python
-            }
-            if a.hasSuffix(".rb") {
-                return .ruby
-            }
-            if a.hasSuffix(".jar") {
-                return .java
-            }
-            if a.hasSuffix(".ts") && !a.contains("node") {
-                // TypeScript files run via Deno or Bun
-                if lowered.contains("deno") { return .deno }
-                if lowered.contains("bun") { return .bun }
-                return .nodeJS
+            let lowArg = arg.lowercased()
+            if let detected = detectFromArg(lowArg, pathLowered: lowered) {
+                return detected
             }
         }
 
         return .unknown
+    }
+
+    private static func detectFromArg(_ lowArg: String, pathLowered: String) -> TechStack? {
+        if lowArg.hasSuffix(".js") || lowArg.hasSuffix(".mjs") || lowArg.hasSuffix(".cjs")
+            || lowArg.contains("next") || lowArg.contains("vite") || lowArg.contains("webpack") {
+            return .nodeJS
+        }
+        if lowArg.hasSuffix(".py") || lowArg.contains("django")
+            || lowArg.contains("flask") || lowArg.contains("fastapi") {
+            return .python
+        }
+        if lowArg.hasSuffix(".rb") {
+            return .ruby
+        }
+        if lowArg.hasSuffix(".jar") {
+            return .java
+        }
+        if lowArg.hasSuffix(".ts") && !lowArg.contains("node") {
+            // TypeScript files run via Deno or Bun
+            if pathLowered.contains("deno") { return .deno }
+            if pathLowered.contains("bun") { return .bun }
+            return .nodeJS
+        }
+        return nil
     }
 }

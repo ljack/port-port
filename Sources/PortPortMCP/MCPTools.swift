@@ -18,7 +18,7 @@ enum MCPTools: Sendable {
                 "processPath": listener.processPath,
                 "workingDirectory": listener.workingDirectory,
                 "techStack": listener.techStack.rawValue,
-                "commandArgs": listener.commandArgs,
+                "commandArgs": listener.commandArgs
             ] as [String: Any]
         }
 
@@ -44,7 +44,7 @@ enum MCPTools: Sendable {
                     "status": "killed",
                     "pid": Int(pid),
                     "port": Int(listener.port),
-                    "processName": listener.processName,
+                    "processName": listener.processName
                 ] as [String: Any])
             } else {
                 let errMsg = String(cString: strerror(errno))
@@ -53,7 +53,7 @@ enum MCPTools: Sendable {
                     "pid": Int(pid),
                     "port": Int(listener.port),
                     "processName": listener.processName,
-                    "error": errMsg,
+                    "error": errMsg
                 ] as [String: Any])
             }
         }
@@ -80,7 +80,7 @@ enum MCPTools: Sendable {
                 "processPath": listener.processPath,
                 "workingDirectory": listener.workingDirectory,
                 "techStack": listener.techStack.rawValue,
-                "commandArgs": listener.commandArgs,
+                "commandArgs": listener.commandArgs
             ] as [String: Any]
         }
 

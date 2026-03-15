@@ -35,9 +35,9 @@ struct EventLogView: View {
             if calendar.isDateInYesterday(date) { return "Yesterday" }
             return date.formatted(date: .abbreviated, time: .omitted)
         }
-        return grouped.sorted { a, b in
-            guard let aFirst = a.value.first, let bFirst = b.value.first else { return false }
-            return aFirst.timestamp > bFirst.timestamp
+        return grouped.sorted { lhs, rhs in
+            guard let lhsFirst = lhs.value.first, let rhsFirst = rhs.value.first else { return false }
+            return lhsFirst.timestamp > rhsFirst.timestamp
         }
     }
 
