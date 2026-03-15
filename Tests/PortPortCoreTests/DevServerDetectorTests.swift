@@ -1,21 +1,25 @@
+import Foundation
 import Testing
 @testable import PortPortCore
 
 @Suite("DevServerDetector Tests")
 struct DevServerDetectorTests {
 
+    private let home = FileManager.default.homeDirectoryForCurrentUser.path()
+
     private func makeListener(
         port: UInt16 = 8080,
         processName: String = "test",
         processPath: String = "/usr/bin/test",
-        workingDirectory: String = "/Users/jarkko/_dev/myproject",
+        workingDirectory: String? = nil,
         techStack: TechStack = .unknown,
         commandArgs: [String] = []
     ) -> PortListener {
-        PortListener(
+        let dir = workingDirectory ?? "\(home)/_dev/myproject"
+        return PortListener(
             port: port, protocol: .tcp, pid: 1, uid: 501,
             processName: processName, processPath: processPath,
-            workingDirectory: workingDirectory, techStack: techStack,
+            workingDirectory: dir, techStack: techStack,
             commandArgs: commandArgs
         )
     }
@@ -42,14 +46,14 @@ struct DevServerDetectorTests {
     @Test func appInLibraryNotDev() {
         let l = makeListener(processName: "Notion Helper",
                             processPath: "/Applications/Notion.app/Contents/MacOS/Notion Helper",
-                            workingDirectory: "/Users/jarkko/Library/Containers/notion")
+                            workingDirectory: "\(home)/Library/Containers/notion")
         #expect(!DevServerDetector.isDev(l))
     }
 
     @Test func daemonInClaudeDirNotDev() {
         let l = makeListener(processName: "bun",
-                            processPath: "/Users/jarkko/.bun/bin/bun",
-                            workingDirectory: "/Users/jarkko/.claude/plugins/cache/foo",
+                            processPath: "\(home)/.bun/bin/bun",
+                            workingDirectory: "\(home)/.claude/plugins/cache/foo",
                             techStack: .bun,
                             commandArgs: ["bun", "worker-service.cjs", "--daemon"])
         #expect(!DevServerDetector.isDev(l))
@@ -71,22 +75,22 @@ struct DevServerDetectorTests {
 
     @Test func downloadsNotDev() {
         let l = makeListener(processName: "bun",
-                            processPath: "/Users/jarkko/.bun/bin/bun",
-                            workingDirectory: "/Users/jarkko/Downloads/something",
+                            processPath: "\(home)/.bun/bin/bun",
+                            workingDirectory: "\(home)/Downloads/something",
                             techStack: .bun)
         #expect(!DevServerDetector.isDev(l))
     }
 
     @Test func rustTargetDebugIsDev() {
-        let l = makeListener(processPath: "/Users/jarkko/_dev/myrust/target/debug/myserver",
-                            workingDirectory: "/Users/jarkko/_dev/myrust")
+        let l = makeListener(processPath: "\(home)/_dev/myrust/target/debug/myserver",
+                            workingDirectory: "\(home)/_dev/myrust")
         #expect(DevServerDetector.isDev(l))
     }
 
     @Test func googleDriveNotDev() {
         let l = makeListener(processName: "Google Drive",
                             processPath: "/Applications/Google Drive.app/Contents/MacOS/Google Drive",
-                            workingDirectory: "/Users/jarkko/Google/")
+                            workingDirectory: "\(home)/Google/")
         #expect(!DevServerDetector.isDev(l))
     }
 }
