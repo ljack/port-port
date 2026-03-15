@@ -194,12 +194,16 @@ final class TUI: @unchecked Sendable {
 
     // MARK: - Rendering
 
-    private func render() {
-        // Use scanWithDepartures instead of scan for proper tracking
-        // (initial scan already happened via scan(), subsequent via scanWithDepartures)
+    /// Pad a string to exactly `width` visible characters, truncating or padding as needed.
+    /// ANSI escape codes are not counted toward width.
+    private func padVisible(_ s: String, _ width: Int) -> String {
+        s.padding(toLength: width, withPad: " ", startingAt: 0)
+    }
 
+    private func render() {
         let (rows, cols) = Terminal.size()
         var buf = ""
+        let sep = Terminal.dim(String(repeating: "─", count: cols))
 
         buf += "\u{1b}[H" // Move to top-left
 
@@ -212,20 +216,30 @@ final class TUI: @unchecked Sendable {
         buf += "\u{1b}[2K" + header + "\n"
 
         // Separator
-        buf += "\u{1b}[2K" + Terminal.dim(String(repeating: "─", count: min(cols, 120))) + "\n"
+        buf += "\u{1b}[2K" + sep + "\n"
+
+        // Fixed column widths (visible chars)
+        let prefixW = 2   // "● " or "  "
+        let portW = 7
+        let protoW = 5
+        let techW = 8
+        let uptimeW = 8
+        let cmdW = 40
+        let fixedW = prefixW + portW + 1 + protoW + 1 + techW + 1 + uptimeW + 1 + cmdW + 1  // separating spaces
+        let dirW = max(10, cols - fixedW)
 
         // Column headers (row 3)
-        let colHeader = "  " + "PORT".padding(toLength: 7, withPad: " ", startingAt: 0)
-            + " " + "PROTO".padding(toLength: 5, withPad: " ", startingAt: 0)
-            + " " + "TECH".padding(toLength: 8, withPad: " ", startingAt: 0)
-            + " " + "UPTIME".padding(toLength: 8, withPad: " ", startingAt: 0)
-            + " " + "COMMAND".padding(toLength: 28, withPad: " ", startingAt: 0)
-            + " DIRECTORY"
+        let colHeader = "  "
+            + padVisible("PORT", portW) + " "
+            + padVisible("PROTO", protoW) + " "
+            + padVisible("TECH", techW) + " "
+            + padVisible("UPTIME", uptimeW) + " "
+            + padVisible("COMMAND", cmdW) + " "
+            + "DIRECTORY"
         buf += "\u{1b}[2K" + Terminal.dim(colHeader) + "\n"
 
         // Port list
-        let listHeight = rows - 7 - min(events.count, 4) // header(3) + help(2) + events + separator
-        // Adjust scroll
+        let listHeight = rows - 7 - min(events.count, 4)
         if selectedIndex < scrollOffset { scrollOffset = selectedIndex }
         if selectedIndex >= scrollOffset + listHeight { scrollOffset = selectedIndex - listHeight + 1 }
 
@@ -238,27 +252,31 @@ final class TUI: @unchecked Sendable {
                 let cwd = PathUtils.abbreviate(l.workingDirectory)
 
                 let dot = Terminal.green("●")
-                let port = String(l.port).padding(toLength: 7, withPad: " ", startingAt: 0)
-                let proto = l.protocol.rawValue.padding(toLength: 5, withPad: " ", startingAt: 0)
+                let port = padVisible(String(l.port), portW)
+                let proto = padVisible(l.protocol.rawValue, protoW)
                 let techRaw = Formatter.techPlain(l.techStack)
-                let tech = Formatter.techBadge(l.techStack) + String(repeating: " ", count: max(0, 8 - techRaw.count))
-                let uptime = Formatter.formatUptime(l.startTime).padding(toLength: 8, withPad: " ", startingAt: 0)
-                let cmd = String(l.command.prefix(28)).padding(toLength: 28, withPad: " ", startingAt: 0)
-                let cwdTrunc = String(cwd.prefix(max(0, cols - 68)))
+                let tech = Formatter.techBadge(l.techStack) + String(repeating: " ", count: max(0, techW - techRaw.count))
+                let uptime = padVisible(Formatter.formatUptime(l.startTime), uptimeW)
+                let cmd = padVisible(String(l.command.prefix(cmdW)), cmdW)
+                let cwdStr = String(cwd.prefix(dirW))
 
-                let line = "\(dot) \(port) \(proto) \(tech) \(uptime) \(cmd) \(Terminal.dim(cwdTrunc))"
+                // Build the content part (visible width = fixedW + cwd visible length)
+                let content = "\(dot) \(port) \(proto) \(tech) \(uptime) \(cmd) \(Terminal.dim(cwdStr))"
+                // Pad the line to full terminal width for consistent highlight
+                let cwdVisible = cwdStr.count
+                let trailingPad = max(0, cols - fixedW - cwdVisible)
 
                 if selected {
-                    buf += Terminal.inverse(" " + line + " ")
+                    buf += Terminal.inverse(content + String(repeating: " ", count: trailingPad))
                 } else {
-                    buf += " " + line
+                    buf += content
                 }
             }
             buf += "\n"
         }
 
         // Events section
-        buf += "\u{1b}[2K" + Terminal.dim(String(repeating: "─", count: min(cols, 120))) + "\n"
+        buf += "\u{1b}[2K" + sep + "\n"
         let eventCount = min(events.count, 3)
         if eventCount > 0 {
             for i in 0..<eventCount {
@@ -273,17 +291,18 @@ final class TUI: @unchecked Sendable {
         }
 
         // Help bar
-        buf += "\u{1b}[2K" + Terminal.dim(String(repeating: "─", count: min(cols, 120))) + "\n"
+        buf += "\u{1b}[2K" + sep + "\n"
         buf += "\u{1b}[2K"
-        buf += " \(Terminal.bold("j/k")) navigate  "
-        buf += "\(Terminal.bold("x")) kill  "
-        buf += "\(Terminal.bold("K")) force kill  "
-        buf += "\(Terminal.bold("o")) browser  "
-        buf += "\(Terminal.bold("t")) terminal  "
-        buf += "\(Terminal.bold("m")) mine  "
-        buf += "\(Terminal.bold("d")) dev  "
-        buf += "\(Terminal.bold("r")) refresh  "
-        buf += "\(Terminal.bold("q")) quit"
+        let help = " \(Terminal.bold("j/k")) navigate  "
+            + "\(Terminal.bold("x")) kill  "
+            + "\(Terminal.bold("K")) force kill  "
+            + "\(Terminal.bold("o")) browser  "
+            + "\(Terminal.bold("t")) terminal  "
+            + "\(Terminal.bold("m")) mine  "
+            + "\(Terminal.bold("d")) dev  "
+            + "\(Terminal.bold("r")) refresh  "
+            + "\(Terminal.bold("q")) quit"
+        buf += help
 
         Terminal.flush(buf)
     }

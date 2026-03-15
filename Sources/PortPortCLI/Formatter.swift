@@ -20,8 +20,22 @@ enum Formatter {
         }
     }
 
+    /// The visible (non-ANSI) text shown by techBadge
     static func techPlain(_ tech: TechStack) -> String {
-        tech.rawValue
+        switch tech {
+        case .nodeJS: "Node.js"
+        case .python: "Python"
+        case .java: "Java"
+        case .ruby: "Ruby"
+        case .go: "Go"
+        case .rust: "Rust"
+        case .deno: "Deno"
+        case .bun: "Bun"
+        case .elixir: "Elixir"
+        case .dotnet: ".NET"
+        case .php: "PHP"
+        case .unknown: "???"
+        }
     }
 
     /// Format a table of listeners for terminal output
@@ -35,7 +49,7 @@ enum Formatter {
             s.padding(toLength: w, withPad: " ", startingAt: 0)
         }
 
-        let header = "\(pad("PORT", 7)) \(pad("PROTO", 5)) \(pad("TECH", 8)) \(pad("UPTIME", 10)) \(pad("COMMAND", 30)) DIRECTORY"
+        let header = "\(pad("PORT", 7)) \(pad("PROTO", 5)) \(pad("TECH", 8)) \(pad("UPTIME", 10)) \(pad("COMMAND", 40)) DIRECTORY"
         lines.append(color ? Terminal.bold(header) : header)
 
         for l in listeners {
@@ -43,7 +57,7 @@ enum Formatter {
             let port = pad(String(l.port), 7)
             let proto = pad(l.protocol.rawValue, 5)
             let techRaw = techPlain(l.techStack)
-            let cmd = pad(String(l.command.prefix(30)), 30)
+            let cmd = pad(String(l.command.prefix(40)), 40)
             let uptime = pad(formatUptime(l.startTime), 10)
 
             if color {

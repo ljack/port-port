@@ -15,69 +15,24 @@ struct PortRowView: View {
 
             // Inline kill confirmation
             if showConfirmKill, let pid = item.pid {
-                HStack(spacing: 8) {
-                    Text("Kill \(item.processName)?")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Button("SIGTERM") {
-                        monitor.killProcess(pid: pid)
-                        showConfirmKill = false
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(.orange)
-                    .font(.caption2)
-                    .controlSize(.small)
-
-                    Button("SIGKILL") {
-                        monitor.killProcess(pid: pid, force: true)
-                        showConfirmKill = false
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(.red)
-                    .font(.caption2)
-                    .controlSize(.small)
-
-                    Button("Cancel") {
-                        showConfirmKill = false
-                    }
-                    .buttonStyle(.plain)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 4)
-                .background(Color.red.opacity(0.05))
-                .transition(.opacity)
+                KillConfirmationView(
+                    processName: item.processName, pid: pid,
+                    monitor: monitor, onDismiss: { showConfirmKill = false }
+                )
             }
 
             // Inline port conflict picker
             if showPortPicker {
-                let suggested = monitor.findAvailablePort(near: item.port)
-                HStack(spacing: 8) {
-                    Text("Port \(item.port) in use by \(item.portConflict?.processName ?? "?")")
-                        .font(.caption2)
-                        .foregroundStyle(.orange)
-                    Spacer()
-                    Button("Use \(suggested)") {
-                        monitor.restartApp(item, onPort: suggested)
+                PortConflictPickerView(
+                    port: item.port,
+                    conflictProcessName: item.portConflict?.processName ?? "?",
+                    suggestedPort: monitor.findAvailablePort(near: item.port),
+                    onRestart: { port in
+                        monitor.restartApp(item, onPort: port)
                         showPortPicker = false
-                    }
-                    .buttonStyle(.bordered)
-                    .font(.caption2)
-                    .controlSize(.small)
-
-                    Button("Cancel") {
-                        showPortPicker = false
-                    }
-                    .buttonStyle(.plain)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 4)
-                .background(Color.orange.opacity(0.05))
-                .transition(.opacity)
+                    },
+                    onDismiss: { showPortPicker = false }
+                )
             }
         }
         .animation(.easeInOut(duration: 0.15), value: showConfirmKill)
@@ -90,7 +45,7 @@ struct PortRowView: View {
                 .fill(item.isRunning ? .green : .gray)
                 .frame(width: 6, height: 6)
 
-            techBadge
+            TechBadge(techStack: item.techStack, opacity: item.isRunning ? 0.15 : 0.08)
 
             Text(verbatim: "\(item.port)")
                 .font(.system(.body, design: .monospaced, weight: .semibold))
@@ -222,48 +177,6 @@ struct PortRowView: View {
                 .buttonStyle(.plain)
                 .help("Remove from history")
             }
-        }
-    }
-
-    private var techBadge: some View {
-        Text(techLabel)
-            .font(.system(size: 14))
-            .frame(width: 22, height: 22)
-            .background(techColor.opacity(item.isRunning ? 0.15 : 0.08), in: RoundedRectangle(cornerRadius: 5))
-            .help(item.techStack.rawValue)
-    }
-
-    private var techLabel: String {
-        switch item.techStack {
-        case .nodeJS: "JS"
-        case .python: "Py"
-        case .java: "Jv"
-        case .ruby: "Rb"
-        case .go: "Go"
-        case .rust: "Rs"
-        case .deno: "De"
-        case .bun: "Bn"
-        case .elixir: "Ex"
-        case .dotnet: ".N"
-        case .php: "PH"
-        case .unknown: "?"
-        }
-    }
-
-    private var techColor: Color {
-        switch item.techStack {
-        case .nodeJS: .green
-        case .python: .blue
-        case .java: .orange
-        case .ruby: .red
-        case .go: .cyan
-        case .rust: .brown
-        case .deno: .mint
-        case .bun: .pink
-        case .elixir: .purple
-        case .dotnet: .indigo
-        case .php: .teal
-        case .unknown: .gray
         }
     }
 }

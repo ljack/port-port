@@ -69,9 +69,7 @@ struct PortItem: Identifiable {
         self.workingDirectory = historyEntry.workingDirectory
         self.techStack = historyEntry.techStack
         self.commandArgs = historyEntry.commandArgs
-        self.command = historyEntry.commandArgs.isEmpty
-            ? historyEntry.processName
-            : ([((historyEntry.commandArgs[0] as NSString).lastPathComponent)] + historyEntry.commandArgs.dropFirst()).joined(separator: " ")
+        self.command = PortListener.formatCommand(args: historyEntry.commandArgs, processName: historyEntry.processName)
         self.startTime = nil
         self.status = .stopped
         self.lastSeen = historyEntry.lastSeen
@@ -80,6 +78,29 @@ struct PortItem: Identifiable {
             techStack: historyEntry.techStack,
             workingDirectory: historyEntry.workingDirectory,
             commandArgs: historyEntry.commandArgs
+        )
+    }
+
+    init(fromEvent event: PortEventRecord, conflict: PortListener?) {
+        self.id = "event:\(event.id.uuidString)"
+        self.port = event.port
+        self.protocol = .tcp
+        self.pid = nil
+        self.uid = 0
+        self.processName = event.processName
+        self.processPath = event.processPath
+        self.workingDirectory = event.workingDirectory
+        self.techStack = event.techStack
+        self.commandArgs = event.commandArgs
+        self.command = PortListener.formatCommand(args: event.commandArgs, processName: event.processName)
+        self.startTime = nil
+        self.status = .stopped
+        self.lastSeen = event.timestamp
+        self.portConflict = conflict
+        self.isDev = DevServerDetector.isDev(
+            techStack: event.techStack,
+            workingDirectory: event.workingDirectory,
+            commandArgs: event.commandArgs
         )
     }
 }
@@ -112,6 +133,7 @@ final class PortMonitor {
     /// Most recent event for toast display, auto-cleared
     var latestEvent: PortEvent?
 
+    let eventLog: PortEventLog
     let history = PortHistory()
     private let scanner = PortScanner()
     private let currentUID = getuid()
@@ -122,7 +144,8 @@ final class PortMonitor {
     private var isFirstScan = true
     private var toastDismissTask: Task<Void, Never>?
 
-    init() {
+    init(eventLog: PortEventLog) {
+        self.eventLog = eventLog
         startScanning()
         requestNotificationPermission()
     }
@@ -207,7 +230,7 @@ final class PortMonitor {
                         // Grouped notification
                         let first = departures[0].listener
                         let count = departures.count
-                        emitEvent(.stopped, title: "\(count) \(first.processName) processes stopped", port: 0, processName: "\(count)x \(first.processName)", techStack: first.techStack, workingDirectory: first.workingDirectory)
+                        emitEvent(.stopped, title: "\(count) \(first.processName) processes stopped", port: 0, processName: "\(count)x \(first.processName)", techStack: first.techStack, workingDirectory: first.workingDirectory, processPath: first.processPath, commandArgs: first.commandArgs)
                     } else if let dep = departures.first {
                         emitEvent(.stopped, for: dep.listener)
                     }
@@ -237,7 +260,7 @@ final class PortMonitor {
         return true
     }
 
-    private func emitEvent(_ kind: PortEvent.Kind, title: String, port: UInt16, processName: String, techStack: TechStack, workingDirectory: String) {
+    private func emitEvent(_ kind: PortEvent.Kind, title: String, port: UInt16, processName: String, techStack: TechStack, workingDirectory: String, processPath: String = "", commandArgs: [String] = []) {
         guard notificationsEnabled else { return }
 
         let event = PortEvent(
@@ -254,6 +277,14 @@ final class PortMonitor {
         latestEvent = event
         clearToastAfterDelay()
 
+        // Persist to event log
+        let persistentKind: PortEventRecord.Kind = kind == .started ? .started : .stopped
+        eventLog.append(PortEventRecord(
+            kind: persistentKind, port: port, processName: processName,
+            processPath: processPath, workingDirectory: workingDirectory,
+            techStack: techStack, commandArgs: commandArgs
+        ))
+
         sendSystemNotification(title: title, body: workingDirectory)
     }
 
@@ -262,7 +293,7 @@ final class PortMonitor {
         case .started: "\(listener.processName) started on port \(listener.port)"
         case .stopped: "\(listener.processName) stopped (was port \(listener.port))"
         }
-        emitEvent(kind, title: title, port: listener.port, processName: listener.processName, techStack: listener.techStack, workingDirectory: listener.workingDirectory)
+        emitEvent(kind, title: title, port: listener.port, processName: listener.processName, techStack: listener.techStack, workingDirectory: listener.workingDirectory, processPath: listener.processPath, commandArgs: listener.commandArgs)
     }
 
     private func clearToastAfterDelay() {
@@ -285,6 +316,18 @@ final class PortMonitor {
                 guard !liveKeys.contains(key) else { continue }
                 let conflict = portMap[entry.lastPort]?.first
                 result.append(PortItem(historyEntry: entry, conflict: conflict))
+
+                // Emit port conflict event (deduplicated)
+                if let conflict,
+                   eventLog.shouldEmitConflict(port: entry.lastPort, originalProcess: entry.processName, conflictProcess: conflict.processName) {
+                    eventLog.append(PortEventRecord(
+                        kind: .portConflict, port: entry.lastPort,
+                        processName: entry.processName, processPath: entry.processPath,
+                        workingDirectory: entry.workingDirectory, techStack: entry.techStack,
+                        commandArgs: entry.commandArgs,
+                        conflictProcessName: conflict.processName
+                    ))
+                }
             }
         }
 

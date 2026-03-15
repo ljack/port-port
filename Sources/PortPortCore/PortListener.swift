@@ -17,11 +17,15 @@ public struct PortListener: Sendable, Identifiable, Hashable, Codable {
 
     /// Human-readable command string
     public var command: String {
-        guard !commandArgs.isEmpty else { return processName }
-        // Show just the binary name + args, not the full path
-        let binary = (commandArgs[0] as NSString).lastPathComponent
-        if commandArgs.count == 1 { return binary }
-        return ([binary] + commandArgs.dropFirst()).joined(separator: " ")
+        Self.formatCommand(args: commandArgs, processName: processName)
+    }
+
+    /// Format command args into a human-readable string
+    public static func formatCommand(args: [String], processName: String) -> String {
+        guard !args.isEmpty else { return processName }
+        let binary = (args[0] as NSString).lastPathComponent
+        if args.count == 1 { return binary }
+        return ([binary] + args.dropFirst()).joined(separator: " ")
     }
 
     public init(

@@ -4,12 +4,15 @@ import UserNotifications
 @main
 struct PortPortApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-    @State private var monitor = PortMonitor()
+    @State private var eventLog = PortEventLog()
+    @State private var monitor: PortMonitor?
 
     var body: some Scene {
         MenuBarExtra {
-            PortListView(monitor: monitor)
-                .frame(width: 420, height: 500)
+            if let monitor {
+                PortListView(monitor: monitor, eventLog: eventLog)
+                    .frame(width: 420, height: 500)
+            }
         } label: {
             Label {
                 Text("port-port")
@@ -18,6 +21,20 @@ struct PortPortApp: App {
             }
         }
         .menuBarExtraStyle(.window)
+
+        Window("Event Log", id: "event-log") {
+            if let monitor {
+                EventLogView(monitor: monitor, eventLog: eventLog)
+                    .frame(minWidth: 500, minHeight: 400)
+            }
+        }
+        .defaultSize(width: 600, height: 700)
+    }
+
+    init() {
+        let log = PortEventLog()
+        _eventLog = State(initialValue: log)
+        _monitor = State(initialValue: PortMonitor(eventLog: log))
     }
 }
 

@@ -124,8 +124,9 @@ enum Terminal {
         Darwin.write(STDOUT_FILENO, &data, data.count)
     }
 
-    /// Write a full frame buffer at once (reduces flicker)
+    /// Write a full frame buffer at once (reduces flicker).
+    /// Replaces \n with \r\n since OPOST is disabled in raw mode.
     static func flush(_ buffer: String) {
-        write(buffer)
+        write(buffer.replacingOccurrences(of: "\n", with: "\r\n"))
     }
 }

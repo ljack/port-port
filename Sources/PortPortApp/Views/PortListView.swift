@@ -4,7 +4,9 @@ import PortPortCore
 
 struct PortListView: View {
     @Bindable var monitor: PortMonitor
+    let eventLog: PortEventLog
 
+    @Environment(\.openWindow) private var openWindow
     @State private var searchText = ""
     @State private var filterTech: TechStack?
     @State private var showEventLog = false
@@ -89,6 +91,16 @@ struct PortListView: View {
             Text(verbatim: "\(runningCount) active")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+
+            Button {
+                openWindow(id: "event-log")
+            } label: {
+                Image(systemName: "list.bullet.rectangle")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .help("Open event log window")
 
             if !monitor.events.isEmpty {
                 Button {

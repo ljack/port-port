@@ -20,7 +20,8 @@ jobs:
     needs: test
     runs-on: macos-15
     outputs:
-      sha256: ${{ steps.checksum.outputs.sha256 }}
+      cli_sha256: ${{ steps.checksum.outputs.cli_sha256 }}
+      app_sha256: ${{ steps.checksum.outputs.app_sha256 }}
     steps:
       - uses: actions/checkout@v4
 
@@ -52,7 +53,7 @@ jobs:
             "$KEYCHAIN_PATH"
           security list-keychain -d user -s "$KEYCHAIN_PATH"
 
-      - name: Code-sign binaries
+      - name: Code-sign CLI binaries
         run: |
           codesign --force --options runtime \
             --sign "$DEVELOPER_ID" \
@@ -61,32 +62,67 @@ jobs:
             --sign "$DEVELOPER_ID" \
             .build/apple/Products/Release/port-port-mcp
 
-      - name: Package release tarball
-        id: package
+      - name: Create .app bundle
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          APP="Port Port.app"
+          CONTENTS="${APP}/Contents"
+          MACOS="${CONTENTS}/MacOS"
+          RESOURCES="${CONTENTS}/Resources"
+
+          mkdir -p "${MACOS}" "${RESOURCES}"
+          cp .build/apple/Products/Release/port-port "${MACOS}/port-port"
+          cp Sources/PortPortApp/Info.plist "${CONTENTS}/Info.plist"
+
+          # Update version in Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${VERSION}" "${CONTENTS}/Info.plist"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${VERSION}" "${CONTENTS}/Info.plist"
+
+      - name: Code-sign .app bundle
+        run: |
+          codesign --force --deep --options runtime \
+            --sign "$DEVELOPER_ID" \
+            "Port Port.app"
+
+      - name: Package CLI tarball
+        id: cli_package
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           ARCHIVE="port-port-v${VERSION}-macos.tar.gz"
 
-          mkdir -p staging
-          cp .build/apple/Products/Release/port-port-cli staging/
-          cp .build/apple/Products/Release/port-port-mcp staging/
-          tar -czf "$ARCHIVE" -C staging port-port-cli port-port-mcp
+          mkdir -p staging-cli
+          cp .build/apple/Products/Release/port-port-cli staging-cli/
+          cp .build/apple/Products/Release/port-port-mcp staging-cli/
+          tar -czf "$ARCHIVE" -C staging-cli port-port-cli port-port-mcp
 
           echo "archive=$ARCHIVE" >> "$GITHUB_OUTPUT"
 
-      - name: Compute SHA-256 checksum
+      - name: Package .app zip
+        id: app_package
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          ARCHIVE="Port-Port-v${VERSION}.zip"
+          ditto -c -k --keepParent "Port Port.app" "$ARCHIVE"
+          echo "archive=$ARCHIVE" >> "$GITHUB_OUTPUT"
+
+      - name: Compute SHA-256 checksums
         id: checksum
         run: |
-          SHA=$(shasum -a 256 "${{ steps.package.outputs.archive }}" | awk '{print $1}')
-          echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
-          echo "$SHA  ${{ steps.package.outputs.archive }}" > checksums.txt
+          CLI_SHA=$(shasum -a 256 "${{ steps.cli_package.outputs.archive }}" | awk '{print $1}')
+          APP_SHA=$(shasum -a 256 "${{ steps.app_package.outputs.archive }}" | awk '{print $1}')
+          echo "cli_sha256=$CLI_SHA" >> "$GITHUB_OUTPUT"
+          echo "app_sha256=$APP_SHA" >> "$GITHUB_OUTPUT"
+
+          echo "$CLI_SHA  ${{ steps.cli_package.outputs.archive }}" > checksums.txt
+          echo "$APP_SHA  ${{ steps.app_package.outputs.archive }}" >> checksums.txt
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: release-artifacts
           path: |
-            ${{ steps.package.outputs.archive }}
+            ${{ steps.cli_package.outputs.archive }}
+            ${{ steps.app_package.outputs.archive }}
             checksums.txt
 
   release:
@@ -106,29 +142,34 @@ jobs:
           generate_release_notes: true
           files: |
             port-port-*.tar.gz
+            Port-Port-*.zip
             checksums.txt
 
   update-homebrew:
     needs: [build, release]
     runs-on: ubuntu-latest
     steps:
-      - name: Update Homebrew formula
+      - name: Update Homebrew tap
         env:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          SHA256="${{ needs.build.outputs.sha256 }}"
-          URL="https://github.com/ljack/port-port/releases/download/${GITHUB_REF_NAME}/port-port-v${VERSION}-macos.tar.gz"
+          CLI_SHA256="${{ needs.build.outputs.cli_sha256 }}"
+          APP_SHA256="${{ needs.build.outputs.app_sha256 }}"
+          CLI_URL="https://github.com/ljack/port-port/releases/download/${GITHUB_REF_NAME}/port-port-v${VERSION}-macos.tar.gz"
+          APP_URL="https://github.com/ljack/port-port/releases/download/${GITHUB_REF_NAME}/Port-Port-v${VERSION}.zip"
 
           git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/ljack/homebrew-port-port.git" tap
           cd tap
+
+          mkdir -p Casks
 
           cat > Formula/port-port.rb << RUBY
           class PortPort < Formula
             desc "CLI tools for monitoring and managing listening ports on macOS"
             homepage "https://github.com/ljack/port-port"
-            url "${URL}"
-            sha256 "${SHA256}"
+            url "${CLI_URL}"
+            sha256 "${CLI_SHA256}"
             version "${VERSION}"
             license "MIT"
 
@@ -145,11 +186,32 @@ jobs:
           end
           RUBY
 
-          # Remove leading whitespace from heredoc
+          cat > Casks/port-port-app.rb << RUBY
+          cask "port-port-app" do
+            version "${VERSION}"
+            sha256 "${APP_SHA256}"
+
+            url "${APP_URL}"
+            name "Port Port"
+            desc "Menu bar app for monitoring listening ports on macOS"
+            homepage "https://github.com/ljack/port-port"
+
+            depends_on macos: ">= :sequoia"
+
+            app "Port Port.app"
+
+            zap trash: [
+              "~/Library/Application Support/port-port",
+            ]
+          end
+          RUBY
+
+          # Remove leading whitespace from heredocs
           sed -i 's/^          //' Formula/port-port.rb
+          sed -i 's/^          //' Casks/port-port-app.rb
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Formula/port-port.rb
+          git add Formula/port-port.rb Casks/port-port-app.rb
           git commit -m "Update port-port to ${VERSION}"
           git push
