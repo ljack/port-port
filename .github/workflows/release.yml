@@ -85,6 +85,31 @@ jobs:
             --sign "$DEVELOPER_ID" \
             "PortPort.app"
 
+      - name: Notarize .app bundle
+        env:
+          APP_STORE_CONNECT_KEY: ${{ secrets.APP_STORE_CONNECT_KEY }}
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          # Write API key to disk
+          mkdir -p ~/.private_keys
+          echo -n "$APP_STORE_CONNECT_KEY" | base64 --decode -o ~/.private_keys/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8
+
+          # Create zip for notarization
+          ditto -c -k --keepParent "PortPort.app" "PortPort-notarize.zip"
+
+          # Submit for notarization and wait
+          xcrun notarytool submit "PortPort-notarize.zip" \
+            --key ~/.private_keys/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8 \
+            --key-id "$APP_STORE_CONNECT_KEY_ID" \
+            --issuer "$APP_STORE_CONNECT_ISSUER_ID" \
+            --wait
+
+          # Staple the notarization ticket to the app
+          xcrun stapler staple "PortPort.app"
+
+          rm "PortPort-notarize.zip"
+
       - name: Package CLI tarball
         id: cli_package
         run: |
