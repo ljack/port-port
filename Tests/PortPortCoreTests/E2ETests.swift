@@ -2,7 +2,9 @@ import Foundation
 import Testing
 @testable import PortPortCore
 
-@Suite("End-to-End Tests")
+@Suite("End-to-End Tests",
+       .enabled(if: ProcessInfo.processInfo.environment["CI"] == nil,
+                "E2E tests require local environment with libproc access"))
 struct E2ETests {
 
     @Test func scanFindsPythonHTTPServer() async throws {
