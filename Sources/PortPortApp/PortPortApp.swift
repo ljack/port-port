@@ -1,4 +1,3 @@
-import AppKit
 import SwiftUI
 import UserNotifications
 
@@ -13,7 +12,8 @@ struct PortPortApp: App {
             img.isTemplate = true
             return img
         }
-        return NSImage(systemSymbolName: "network", accessibilityDescription: "port-port")!
+        return NSImage(systemSymbolName: "network", accessibilityDescription: "port-port")
+            ?? NSImage()
     }()
 
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
@@ -74,7 +74,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         // Show welcome window unless user opted out
         let hideWelcome = UserDefaults.standard.bool(forKey: AppConstants.hideWelcomeKey)
         if !hideWelcome {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .milliseconds(500))
                 let controller = WelcomeWindowController()
                 self?.welcomeController = controller
                 controller.show()

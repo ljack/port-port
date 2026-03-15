@@ -108,74 +108,60 @@ struct PortRowView: View {
     private var actionButtons: some View {
         HStack(spacing: 4) {
             if item.isRunning {
-                Button {
+                Button("Open in Browser", systemImage: "globe") {
                     monitor.openInBrowser(port: item.port)
-                } label: {
-                    Image(systemName: "globe")
-                        .font(.caption)
                 }
+                .labelStyle(.iconOnly)
                 .buttonStyle(.plain)
-                .help("Open in browser")
+                .font(.caption)
 
                 if !item.workingDirectory.isEmpty {
-                    Button {
+                    Button("Open Terminal", systemImage: "terminal") {
                         monitor.openTerminal(at: item.workingDirectory)
-                    } label: {
-                        Image(systemName: "terminal")
-                            .font(.caption)
                     }
+                    .labelStyle(.iconOnly)
                     .buttonStyle(.plain)
-                    .help("Open terminal here")
+                    .font(.caption)
                 }
 
-                Button {
+                Button("Kill Process", systemImage: "xmark.circle") {
                     showConfirmKill.toggle()
-                } label: {
-                    Image(systemName: "xmark.circle")
-                        .font(.caption)
-                        .foregroundStyle(.red)
                 }
+                .labelStyle(.iconOnly)
                 .buttonStyle(.plain)
-                .help("Kill process")
+                .font(.caption)
+                .foregroundStyle(.red)
             } else {
                 if !item.commandArgs.isEmpty {
-                    Button {
+                    Button("Restart", systemImage: "play.circle") {
                         if item.portConflict != nil {
                             showPortPicker.toggle()
                         } else {
                             monitor.restartApp(item)
                         }
-                    } label: {
-                        Image(systemName: "play.circle")
-                            .font(.caption)
-                            .foregroundStyle(.green)
                     }
+                    .labelStyle(.iconOnly)
                     .buttonStyle(.plain)
-                    .help(item.portConflict != nil
-                        ? "Restart (port \(item.port) in use)"
-                        : "Restart on port \(item.port)")
+                    .font(.caption)
+                    .foregroundStyle(.green)
                 }
 
                 if !item.workingDirectory.isEmpty {
-                    Button {
+                    Button("Open Terminal", systemImage: "terminal") {
                         monitor.openTerminal(at: item.workingDirectory)
-                    } label: {
-                        Image(systemName: "terminal")
-                            .font(.caption)
                     }
+                    .labelStyle(.iconOnly)
                     .buttonStyle(.plain)
-                    .help("Open terminal here")
+                    .font(.caption)
                 }
 
-                Button {
+                Button("Remove from History", systemImage: "trash") {
                     monitor.removeHistoryEntry(item)
-                } label: {
-                    Image(systemName: "trash")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                 }
+                .labelStyle(.iconOnly)
                 .buttonStyle(.plain)
-                .help("Remove from history")
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
         }
     }

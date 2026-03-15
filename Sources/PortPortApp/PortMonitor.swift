@@ -424,7 +424,7 @@ final class PortMonitor {
     }
 
     func openInBrowser(port: UInt16) {
-        let url = URL(string: "http://localhost:\(port)")!
+        guard let url = URL(string: "http://localhost:\(port)") else { return }
         NSWorkspace.shared.open(url)
     }
 

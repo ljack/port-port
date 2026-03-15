@@ -38,16 +38,35 @@ struct WelcomeView: View {
 
             Spacer()
 
-            // Arrow pointing up to menu bar
-            Image(systemName: "arrow.up.to.line")
-                .font(.system(size: 20))
-                .foregroundStyle(.tertiary)
-                .offset(y: pulse ? -4 : 0)
-                .animation(.easeInOut(duration: 1).repeatForever(autoreverses: true), value: pulse)
-
-            Text("Look for the icon in your menu bar")
+            // Show the actual menu bar icon so users know what to look for
+            Text("Look for this icon in your menu bar")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
+
+            HStack(spacing: 12) {
+                // Fake neighboring icons
+                Image(systemName: "wifi")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.tertiary)
+
+                // The actual PortPort icon, highlighted
+                if let icon = Self.appIcon {
+                    Image(nsImage: icon)
+                        .resizable()
+                        .frame(width: 18, height: 18)
+                        .padding(6)
+                        .background(Color.accentColor.opacity(0.2), in: RoundedRectangle(cornerRadius: 6))
+                        .offset(y: pulse ? -2 : 2)
+                        .animation(.easeInOut(duration: 1).repeatForever(autoreverses: true), value: pulse)
+                }
+
+                Image(systemName: "battery.75percent")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.vertical, 8)
+            .padding(.horizontal, 16)
+            .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
 
             Toggle("Don't show on launch", isOn: $dontShowAgain)
                 .font(.caption)
@@ -70,7 +89,8 @@ struct WelcomeView: View {
             .padding(.bottom, 8)
         }
         .padding(24)
-        .frame(width: 280, height: 320)
+        .frame(width: 280, height: 380)
+        .background(Color(nsColor: .windowBackgroundColor))
         .onAppear { pulse = true }
     }
 }
@@ -88,7 +108,7 @@ final class WelcomeWindowController {
 
         let hostingView = NSHostingView(rootView: view)
         let w = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 280, height: 320),
+            contentRect: NSRect(x: 0, y: 0, width: 280, height: 380),
             styleMask: [.titled, .fullSizeContentView, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -97,6 +117,7 @@ final class WelcomeWindowController {
         w.isMovableByWindowBackground = true
         w.titlebarAppearsTransparent = true
         w.titleVisibility = .hidden
+        w.isOpaque = true
         w.backgroundColor = .windowBackgroundColor
         w.level = .floating
         w.hidesOnDeactivate = false

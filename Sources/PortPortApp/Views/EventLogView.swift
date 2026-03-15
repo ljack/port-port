@@ -8,13 +8,6 @@ struct EventLogView: View {
     @State private var searchText = ""
     @State private var filterKind: PortEventRecord.Kind?
 
-    private static let dateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateStyle = .medium
-        f.timeStyle = .none
-        return f
-    }()
-
     private var filteredEvents: [PortEventRecord] {
         var result = eventLog.events
 
@@ -23,12 +16,11 @@ struct EventLogView: View {
         }
 
         if !searchText.isEmpty {
-            let query = searchText.lowercased()
             result = result.filter {
-                $0.processName.lowercased().contains(query) ||
-                String($0.port).contains(query) ||
-                $0.workingDirectory.lowercased().contains(query) ||
-                $0.techStack.rawValue.lowercased().contains(query)
+                $0.processName.localizedStandardContains(searchText) ||
+                String($0.port).localizedStandardContains(searchText) ||
+                $0.workingDirectory.localizedStandardContains(searchText) ||
+                $0.techStack.rawValue.localizedStandardContains(searchText)
             }
         }
 
@@ -37,12 +29,11 @@ struct EventLogView: View {
 
     private var groupedEvents: [(String, [PortEventRecord])] {
         let calendar = Calendar.current
-        let formatter = Self.dateFormatter
         let grouped = Dictionary(grouping: filteredEvents) { event -> String in
             let date = event.timestamp
             if calendar.isDateInToday(date) { return "Today" }
             if calendar.isDateInYesterday(date) { return "Yesterday" }
-            return formatter.string(from: date)
+            return date.formatted(date: .abbreviated, time: .omitted)
         }
         return grouped.sorted { a, b in
             guard let aFirst = a.value.first, let bFirst = b.value.first else { return false }
@@ -128,9 +119,7 @@ struct EventLogView: View {
                     .padding(.horizontal, 6)
                     .padding(.vertical, 3)
                     .background(
-                        filterKind == kind
-                            ? AnyShapeStyle(kind.color.opacity(0.2))
-                            : AnyShapeStyle(.quaternary),
+                        kind.color.opacity(filterKind == kind ? 0.2 : 0.05),
                         in: RoundedRectangle(cornerRadius: 4)
                     )
                     .foregroundStyle(filterKind == kind ? .primary : .secondary)
@@ -306,66 +295,61 @@ struct EventRowView: View {
     private var actionButtons: some View {
         HStack(spacing: 4) {
             if isStillRunning {
-                Button {
+                Button("Open in Browser", systemImage: "globe") {
                     monitor.openInBrowser(port: event.port)
-                } label: {
-                    Image(systemName: "globe").font(.caption)
                 }
+                .labelStyle(.iconOnly)
                 .buttonStyle(.plain)
-                .help("Open in browser")
+                .font(.caption)
 
                 if !event.workingDirectory.isEmpty {
-                    Button {
+                    Button("Open Terminal", systemImage: "terminal") {
                         monitor.openTerminal(at: event.workingDirectory)
-                    } label: {
-                        Image(systemName: "terminal").font(.caption)
                     }
+                    .labelStyle(.iconOnly)
                     .buttonStyle(.plain)
-                    .help("Open terminal here")
+                    .font(.caption)
                 }
 
-                Button {
+                Button("Kill Process", systemImage: "xmark.circle") {
                     showConfirmKill.toggle()
-                } label: {
-                    Image(systemName: "xmark.circle").font(.caption).foregroundStyle(.red)
                 }
+                .labelStyle(.iconOnly)
                 .buttonStyle(.plain)
-                .help("Kill process")
+                .font(.caption)
+                .foregroundStyle(.red)
             } else if event.kind == .stopped {
                 if !event.commandArgs.isEmpty {
-                    Button {
+                    Button("Restart", systemImage: "play.circle") {
                         if portConflict != nil {
                             showPortPicker.toggle()
                         } else {
                             restartFromEvent()
                         }
-                    } label: {
-                        Image(systemName: "play.circle").font(.caption).foregroundStyle(.green)
                     }
+                    .labelStyle(.iconOnly)
                     .buttonStyle(.plain)
-                    .help(portConflict != nil
-                        ? "Restart (port \(event.port) in use)"
-                        : "Restart on port \(event.port)")
+                    .font(.caption)
+                    .foregroundStyle(.green)
                 }
 
                 if !event.workingDirectory.isEmpty {
-                    Button {
+                    Button("Open Terminal", systemImage: "terminal") {
                         monitor.openTerminal(at: event.workingDirectory)
-                    } label: {
-                        Image(systemName: "terminal").font(.caption)
                     }
+                    .labelStyle(.iconOnly)
                     .buttonStyle(.plain)
-                    .help("Open terminal here")
+                    .font(.caption)
                 }
             }
 
-            Button {
+            Button("Remove Event", systemImage: "trash") {
                 eventLog.remove(id: event.id)
-            } label: {
-                Image(systemName: "trash").font(.caption).foregroundStyle(.secondary)
             }
+            .labelStyle(.iconOnly)
             .buttonStyle(.plain)
-            .help("Remove event")
+            .font(.caption)
+            .foregroundStyle(.secondary)
         }
     }
 

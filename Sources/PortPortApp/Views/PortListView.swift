@@ -1,4 +1,3 @@
-import AppKit
 import SwiftUI
 import PortPortCore
 
@@ -30,12 +29,11 @@ struct PortListView: View {
         }
 
         if !searchText.isEmpty {
-            let query = searchText.lowercased()
             result = result.filter {
-                $0.processName.lowercased().contains(query) ||
-                String($0.port).contains(query) ||
-                $0.techStack.rawValue.lowercased().contains(query) ||
-                $0.workingDirectory.lowercased().contains(query)
+                $0.processName.localizedStandardContains(searchText) ||
+                String($0.port).localizedStandardContains(searchText) ||
+                $0.techStack.rawValue.localizedStandardContains(searchText) ||
+                $0.workingDirectory.localizedStandardContains(searchText)
             }
         }
 
@@ -92,36 +90,30 @@ struct PortListView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            Button {
+            Button("Event Log", systemImage: "list.bullet.rectangle") {
                 openWindow(id: "event-log")
-            } label: {
-                Image(systemName: "list.bullet.rectangle")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
+            .labelStyle(.iconOnly)
             .buttonStyle(.plain)
-            .help("Open event log window")
+            .font(.caption)
+            .foregroundStyle(.secondary)
 
             if !monitor.events.isEmpty {
-                Button {
+                Button("Recent Events", systemImage: "bell.badge") {
                     showEventLog.toggle()
-                } label: {
-                    Image(systemName: "bell.badge")
-                        .font(.caption)
-                        .foregroundStyle(showEventLog ? .primary : .secondary)
                 }
+                .labelStyle(.iconOnly)
                 .buttonStyle(.plain)
-                .help("Event log")
+                .font(.caption)
+                .foregroundStyle(showEventLog ? .primary : .secondary)
             }
 
-            Button {
+            Button("Refresh", systemImage: "arrow.clockwise") {
                 Task { await monitor.performScan() }
-            } label: {
-                Image(systemName: "arrow.clockwise")
-                    .font(.caption)
             }
+            .labelStyle(.iconOnly)
             .buttonStyle(.plain)
-            .help("Refresh")
+            .font(.caption)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -170,10 +162,7 @@ struct PortListView: View {
                     .font(.caption2)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(
-                        monitor.myPortsOnly ? AnyShapeStyle(Color.accentColor.opacity(0.2)) : AnyShapeStyle(.quaternary),
-                        in: RoundedRectangle(cornerRadius: 4)
-                    )
+                    .background(Color.accentColor.opacity(monitor.myPortsOnly ? 0.2 : 0.05), in: RoundedRectangle(cornerRadius: 4))
                     .foregroundStyle(monitor.myPortsOnly ? .primary : .secondary)
             }
             .buttonStyle(.plain)
@@ -186,10 +175,7 @@ struct PortListView: View {
                     .font(.caption2)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(
-                        monitor.devOnly ? AnyShapeStyle(Color.accentColor.opacity(0.2)) : AnyShapeStyle(.quaternary),
-                        in: RoundedRectangle(cornerRadius: 4)
-                    )
+                    .background(Color.accentColor.opacity(monitor.devOnly ? 0.2 : 0.05), in: RoundedRectangle(cornerRadius: 4))
                     .foregroundStyle(monitor.devOnly ? .primary : .secondary)
             }
             .buttonStyle(.plain)
