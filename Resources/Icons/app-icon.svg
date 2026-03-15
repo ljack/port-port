@@ -12,7 +12,6 @@
       <stop offset="0%" stop-color="#81d4fa"/>
       <stop offset="100%" stop-color="#4fc3f7"/>
     </linearGradient>
-    <!-- Outer glow filter -->
     <filter id="nodeGlow" x="-50%" y="-50%" width="200%" height="200%">
       <feGaussianBlur in="SourceGraphic" stdDeviation="12" result="blur"/>
       <feComposite in="SourceGraphic" in2="blur" operator="over"/>
@@ -26,8 +25,8 @@
     </filter>
   </defs>
 
-  <!-- Background: rounded square -->
-  <rect width="1024" height="1024" rx="228" fill="url(#bg)"/>
+  <!-- Background: full bleed square (macOS applies its own rounded mask) -->
+  <rect width="1024" height="1024" fill="url(#bg)"/>
 
   <!-- Subtle grid pattern for depth -->
   <g opacity="0.04" stroke="#4fc3f7" stroke-width="1" fill="none">
@@ -39,68 +38,57 @@
     <line x1="768" y1="0" x2="768" y2="1024"/>
   </g>
 
-  <!-- Connection line (behind nodes) - soft glow layer -->
+  <!-- Connection line - soft glow layer -->
   <line x1="340" y1="512" x2="684" y2="512" stroke="#4fc3f7" stroke-width="8" opacity="0.3" filter="url(#softGlow)"/>
 
   <!-- Connection line - main -->
   <line x1="340" y1="512" x2="684" y2="512" stroke="url(#glow)" stroke-width="6" stroke-linecap="round" filter="url(#lineGlow)"/>
 
-  <!-- Data dots traveling on the line -->
+  <!-- Data dots on the line -->
   <circle cx="440" cy="512" r="5" fill="#81d4fa" opacity="0.7"/>
   <circle cx="512" cy="512" r="4" fill="#b3e5fc" opacity="0.5"/>
   <circle cx="584" cy="512" r="5" fill="#81d4fa" opacity="0.7"/>
 
   <!-- Left node - outer ring glow -->
-  <circle cx="340" cy="512" r="130" fill="#4fc3f7" opacity="0.06" filter="url(#softGlow)"/>
-
+  <circle cx="340" cy="512" r="140" fill="#4fc3f7" opacity="0.06" filter="url(#softGlow)"/>
   <!-- Left node - outer ring -->
-  <circle cx="340" cy="512" r="120" fill="none" stroke="url(#glow)" stroke-width="5" opacity="0.5"/>
-
+  <circle cx="340" cy="512" r="130" fill="none" stroke="url(#glow)" stroke-width="5" opacity="0.5"/>
   <!-- Left node - filled circle -->
-  <circle cx="340" cy="512" r="85" fill="#1a1a2e" stroke="url(#glow2)" stroke-width="4"/>
-
+  <circle cx="340" cy="512" r="95" fill="#1a1a2e" stroke="url(#glow2)" stroke-width="4"/>
   <!-- Left node - inner port dot -->
-  <circle cx="340" cy="512" r="32" fill="url(#glow)" filter="url(#nodeGlow)"/>
-
+  <circle cx="340" cy="512" r="36" fill="url(#glow)" filter="url(#nodeGlow)"/>
   <!-- Left node - highlight -->
-  <circle cx="328" cy="498" r="10" fill="white" opacity="0.3"/>
+  <circle cx="326" cy="496" r="12" fill="white" opacity="0.3"/>
 
   <!-- Right node - outer ring glow -->
-  <circle cx="684" cy="512" r="130" fill="#4fc3f7" opacity="0.06" filter="url(#softGlow)"/>
-
+  <circle cx="684" cy="512" r="140" fill="#4fc3f7" opacity="0.06" filter="url(#softGlow)"/>
   <!-- Right node - outer ring -->
-  <circle cx="684" cy="512" r="120" fill="none" stroke="url(#glow)" stroke-width="5" opacity="0.5"/>
-
+  <circle cx="684" cy="512" r="130" fill="none" stroke="url(#glow)" stroke-width="5" opacity="0.5"/>
   <!-- Right node - filled circle -->
-  <circle cx="684" cy="512" r="85" fill="#1a1a2e" stroke="url(#glow2)" stroke-width="4"/>
-
+  <circle cx="684" cy="512" r="95" fill="#1a1a2e" stroke="url(#glow2)" stroke-width="4"/>
   <!-- Right node - inner port dot -->
-  <circle cx="684" cy="512" r="32" fill="url(#glow)" filter="url(#nodeGlow)"/>
-
+  <circle cx="684" cy="512" r="36" fill="url(#glow)" filter="url(#nodeGlow)"/>
   <!-- Right node - highlight -->
-  <circle cx="672" cy="498" r="10" fill="white" opacity="0.3"/>
+  <circle cx="670" cy="496" r="12" fill="white" opacity="0.3"/>
 
-  <!-- Small satellite connection points (suggesting multiple ports) -->
+  <!-- Satellite connection points -->
   <!-- Top-left -->
-  <line x1="265" y1="420" x2="290" y2="455" stroke="#4fc3f7" stroke-width="2.5" opacity="0.35" stroke-linecap="round"/>
-  <circle cx="258" cy="412" r="10" fill="none" stroke="#4fc3f7" stroke-width="2" opacity="0.35"/>
-  <circle cx="258" cy="412" r="4" fill="#4fc3f7" opacity="0.4"/>
+  <line x1="258" y1="408" x2="286" y2="448" stroke="#4fc3f7" stroke-width="2.5" opacity="0.4" stroke-linecap="round"/>
+  <circle cx="250" cy="398" r="12" fill="none" stroke="#4fc3f7" stroke-width="2" opacity="0.4"/>
+  <circle cx="250" cy="398" r="5" fill="#4fc3f7" opacity="0.45"/>
 
   <!-- Bottom-left -->
-  <line x1="265" y1="604" x2="290" y2="569" stroke="#4fc3f7" stroke-width="2.5" opacity="0.35" stroke-linecap="round"/>
-  <circle cx="258" cy="612" r="10" fill="none" stroke="#4fc3f7" stroke-width="2" opacity="0.35"/>
-  <circle cx="258" cy="612" r="4" fill="#4fc3f7" opacity="0.4"/>
+  <line x1="258" y1="616" x2="286" y2="576" stroke="#4fc3f7" stroke-width="2.5" opacity="0.4" stroke-linecap="round"/>
+  <circle cx="250" cy="626" r="12" fill="none" stroke="#4fc3f7" stroke-width="2" opacity="0.4"/>
+  <circle cx="250" cy="626" r="5" fill="#4fc3f7" opacity="0.45"/>
 
   <!-- Top-right -->
-  <line x1="759" y1="420" x2="734" y2="455" stroke="#4fc3f7" stroke-width="2.5" opacity="0.35" stroke-linecap="round"/>
-  <circle cx="766" cy="412" r="10" fill="none" stroke="#4fc3f7" stroke-width="2" opacity="0.35"/>
-  <circle cx="766" cy="412" r="4" fill="#4fc3f7" opacity="0.4"/>
+  <line x1="766" y1="408" x2="738" y2="448" stroke="#4fc3f7" stroke-width="2.5" opacity="0.4" stroke-linecap="round"/>
+  <circle cx="774" cy="398" r="12" fill="none" stroke="#4fc3f7" stroke-width="2" opacity="0.4"/>
+  <circle cx="774" cy="398" r="5" fill="#4fc3f7" opacity="0.45"/>
 
   <!-- Bottom-right -->
-  <line x1="759" y1="604" x2="734" y2="569" stroke="#4fc3f7" stroke-width="2.5" opacity="0.35" stroke-linecap="round"/>
-  <circle cx="766" cy="612" r="10" fill="none" stroke="#4fc3f7" stroke-width="2" opacity="0.35"/>
-  <circle cx="766" cy="612" r="4" fill="#4fc3f7" opacity="0.4"/>
-
-  <!-- "port-port" text at bottom -->
-  <text x="512" y="780" text-anchor="middle" font-family="-apple-system, SF Pro Display, Helvetica Neue, sans-serif" font-size="72" font-weight="300" letter-spacing="8" fill="#4fc3f7" opacity="0.6">port-port</text>
+  <line x1="766" y1="616" x2="738" y2="576" stroke="#4fc3f7" stroke-width="2.5" opacity="0.4" stroke-linecap="round"/>
+  <circle cx="774" cy="626" r="12" fill="none" stroke="#4fc3f7" stroke-width="2" opacity="0.4"/>
+  <circle cx="774" cy="626" r="5" fill="#4fc3f7" opacity="0.45"/>
 </svg>
