@@ -53,7 +53,7 @@ public struct PortListener: Sendable, Identifiable, Hashable, Codable {
     }
 }
 
-public enum TransportProtocol: String, Sendable, Codable, Hashable {
+public enum TransportProtocol: String, Sendable, Codable, Hashable, CaseIterable {
     case tcp = "TCP"
     case udp = "UDP"
 }

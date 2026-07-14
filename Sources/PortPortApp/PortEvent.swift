@@ -14,6 +14,7 @@ struct PortEvent: Identifiable {
     let port: UInt16
     let processName: String
     let techStack: TechStack
+    let transportProtocol: TransportProtocol
     let workingDirectory: String
 
     var title: String {

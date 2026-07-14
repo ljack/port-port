@@ -42,6 +42,12 @@ struct PortPortApp: App {
             }
         }
         .defaultSize(width: 600, height: 700)
+
+        Settings {
+            if let monitor {
+                NotificationSettingsView(monitor: monitor)
+            }
+        }
     }
 
     init() {

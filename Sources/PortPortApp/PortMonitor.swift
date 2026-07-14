@@ -9,6 +9,12 @@ private struct PendingDeparture {
     let disappearedAt: Date
 }
 
+private struct DepartureGroupKey: Hashable {
+    let applicationID: String
+    let processName: String
+    let transportProtocol: TransportProtocol
+}
+
 @Observable
 @MainActor
 final class PortMonitor {
@@ -22,9 +28,9 @@ final class PortMonitor {
     var myPortsOnly = true
     var devOnly = true
 
-    // Notification settings
+    // Event and notification settings
     var gracePeriod: TimeInterval = 15.0
-    var notificationsEnabled = true
+    let notificationPreferences: NotificationPreferences
 
     // Event log
     var events: [PortEvent] = []
@@ -34,7 +40,7 @@ final class PortMonitor {
     let eventLog: PortEventLog
     let history = PortHistory()
     private let scanner = PortScanner()
-    private let currentUID = getuid()
+    let currentUID = getuid()
     private let maxEvents = 100
     private var scanTask: Task<Void, Never>?
     private var previousListeners: [String: PortListener] = [:]
@@ -42,10 +48,13 @@ final class PortMonitor {
     private var isFirstScan = true
     private var toastDismissTask: Task<Void, Never>?
 
-    init(eventLog: PortEventLog) {
+    init(
+        eventLog: PortEventLog,
+        notificationPreferences: NotificationPreferences = NotificationPreferences()
+    ) {
         self.eventLog = eventLog
+        self.notificationPreferences = notificationPreferences
         startScanning()
-        requestNotificationPermission()
     }
 
     func startScanning() {
@@ -109,7 +118,7 @@ final class PortMonitor {
                 continue
             }
 
-            if matchesNotificationFilters(listener) {
+            if matchesNotificationFilters(listener), shouldEmitEvent(.started, for: listener) {
                 emitEvent(.started, for: listener)
             }
         }
@@ -122,7 +131,7 @@ final class PortMonitor {
         let departedKeys = previousKeys.subtracting(currentKeys)
         for key in departedKeys {
             guard let listener = previousListeners[key] else { continue }
-            if matchesNotificationFilters(listener) {
+            if matchesNotificationFilters(listener), shouldEmitEvent(.stopped, for: listener) {
                 pendingDepartures[key] = PendingDeparture(
                     listener: listener,
                     disappearedAt: Date()
@@ -141,10 +150,16 @@ final class PortMonitor {
 
         guard !confirmed.isEmpty else { return }
 
-        var grouped: [String: [PendingDeparture]] = [:]
+        var grouped: [DepartureGroupKey: [PendingDeparture]] = [:]
         for key in confirmed {
             if let pending = pendingDepartures.removeValue(forKey: key) {
-                grouped[pending.listener.processName, default: []].append(pending)
+                let application = notificationApplication(for: pending.listener)
+                let groupKey = DepartureGroupKey(
+                    applicationID: application.id,
+                    processName: pending.listener.processName,
+                    transportProtocol: pending.listener.protocol
+                )
+                grouped[groupKey, default: []].append(pending)
             }
         }
         for (_, departures) in grouped {
@@ -168,17 +183,6 @@ final class PortMonitor {
         }
     }
 
-    /// Check if a listener matches the current notification filters
-    private func matchesNotificationFilters(_ listener: PortListener) -> Bool {
-        if myPortsOnly && listener.uid != currentUID {
-            return false
-        }
-        if devOnly && !DevServerDetector.isDev(listener) {
-            return false
-        }
-        return true
-    }
-
     private func emitEvent(
         _ kind: PortEvent.Kind,
         title: String,
@@ -186,7 +190,7 @@ final class PortMonitor {
         processName: String,
         listener: PortListener
     ) {
-        guard notificationsEnabled else { return }
+        guard shouldEmitEvent(kind, for: listener) else { return }
 
         let event = PortEvent(
             kind: kind,
@@ -194,6 +198,7 @@ final class PortMonitor {
             port: port,
             processName: processName,
             techStack: listener.techStack,
+            transportProtocol: listener.protocol,
             workingDirectory: listener.workingDirectory
         )
         events.insert(event, at: 0)
@@ -211,6 +216,7 @@ final class PortMonitor {
             processPath: listener.processPath,
             workingDirectory: listener.workingDirectory,
             techStack: listener.techStack,
+            transportProtocol: listener.protocol,
             commandArgs: listener.commandArgs
         ))
 
@@ -255,18 +261,30 @@ final class PortMonitor {
                 result.append(PortItem(historyEntry: entry, conflict: conflict))
 
                 // Emit port conflict event (deduplicated)
-                if let conflict,
-                   eventLog.shouldEmitConflict(
-                       port: entry.lastPort,
-                       originalProcess: entry.processName,
-                       conflictProcess: conflict.processName
-                   ) {
+                if let conflict {
+                    let application = NotificationApplication(
+                        processName: entry.processName,
+                        processPath: entry.processPath,
+                        workingDirectory: entry.workingDirectory
+                    )
+                    guard notificationPreferences.allows(
+                        application: application,
+                        protocol: entry.lastProtocol,
+                        port: entry.lastPort,
+                        kind: .portConflict
+                    ) else { continue }
+                    guard eventLog.shouldEmitConflict(
+                        port: entry.lastPort,
+                        originalProcess: entry.processName,
+                        conflictProcess: conflict.processName
+                    ) else { continue }
                     eventLog.append(PortEventRecord(
                         kind: .portConflict, port: entry.lastPort,
                         processName: entry.processName,
                         processPath: entry.processPath,
                         workingDirectory: entry.workingDirectory,
                         techStack: entry.techStack,
+                        transportProtocol: entry.lastProtocol,
                         commandArgs: entry.commandArgs,
                         conflictProcessName: conflict.processName
                     ))

@@ -9,6 +9,10 @@ struct PortRowView: View {
     @State private var showConfirmKill = false
     @State private var showPortPicker = false
 
+    private var notificationApplication: NotificationApplication {
+        monitor.notificationApplication(for: item)
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             mainRow
@@ -102,11 +106,25 @@ struct PortRowView: View {
         .background(isHovering ? Color.primary.opacity(0.05) : .clear)
         .opacity(item.isRunning ? 1.0 : 0.7)
         .onHover { isHovering = $0 }
+        .contextMenu {
+            NotificationRuleMenuItems(
+                monitor: monitor,
+                application: notificationApplication
+            )
+        }
     }
 
     @ViewBuilder
     private var actionButtons: some View {
         HStack(spacing: 4) {
+            NotificationRuleMenu(
+                monitor: monitor,
+                application: notificationApplication
+            )
+            .labelStyle(.iconOnly)
+            .buttonStyle(.plain)
+            .font(.caption)
+
             if item.isRunning {
                 Button("Open in Browser", systemImage: "globe") {
                     monitor.openInBrowser(port: item.port)

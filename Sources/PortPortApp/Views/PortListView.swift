@@ -133,6 +133,9 @@ struct PortListHeaderView: View {
                 .foregroundStyle(.secondary)
             Text("port-port")
                 .font(.headline)
+            Text("v\(AppVersion.display)")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
             Spacer()
             Text(verbatim: "\(runningCount) active")
                 .font(.caption)
@@ -356,6 +359,14 @@ struct PortListFooterView: View {
                 .foregroundStyle(.secondary)
             }
             Spacer()
+
+            SettingsLink {
+                Label("Settings", systemImage: "gearshape")
+            }
+            .labelStyle(.iconOnly)
+            .buttonStyle(.plain)
+            .font(.caption)
+            .foregroundStyle(.secondary)
 
             // Grace period control
             Menu {

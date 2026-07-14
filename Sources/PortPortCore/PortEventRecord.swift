@@ -16,13 +16,15 @@ public struct PortEventRecord: Codable, Sendable, Identifiable {
     public let processPath: String
     public let workingDirectory: String
     public let techStack: TechStack
+    public let transportProtocol: TransportProtocol?
     public let commandArgs: [String]
     /// For portConflict: the process that took the port
     public let conflictProcessName: String?
 
     public init(
         kind: Kind, port: UInt16, processName: String, processPath: String,
-        workingDirectory: String, techStack: TechStack, commandArgs: [String],
+        workingDirectory: String, techStack: TechStack,
+        transportProtocol: TransportProtocol? = nil, commandArgs: [String],
         conflictProcessName: String? = nil
     ) {
         self.id = UUID()
@@ -33,6 +35,7 @@ public struct PortEventRecord: Codable, Sendable, Identifiable {
         self.processPath = processPath
         self.workingDirectory = workingDirectory
         self.techStack = techStack
+        self.transportProtocol = transportProtocol
         self.commandArgs = commandArgs
         self.conflictProcessName = conflictProcessName
     }
